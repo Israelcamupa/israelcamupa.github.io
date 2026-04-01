@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VoxDoc – Leitor de Documentos com OCR</title>
+  
+  <!-- Bootstrap 5 -->
+  <link href="./CSS/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <!-- Tesseract.js -->
+  <script src="./JS/tesseract.min.js"></script>
+
+  <!-- Bibliotecas offline -->
+  <script src="./JS/pdf.min.js"></script>
+  <script src="./JS/pdf.worker.min.js"></script>
+  <script src="./JS/mammoth.browser.min.js"></script>
+  <script src="./JS/lame.min.js"></script>
+
+  <!-- Configuração OCR Online/Offline -->
+  <script>
+    window.VOXDOC_OCR_CONFIG = {
+      isOnline: navigator.onLine,
+      workerPath: './JS/worker.min.js',
+      langPath: './JS/lang-data/',
+      corePath: './JS/tesseract-core.wasm.js',
+      fallbackOnline: true
+    };
+    window.addEventListener('online', () => { window.VOXDOC_OCR_CONFIG.isOnline = true; });
+    window.addEventListener('offline', () => { window.VOXDOC_OCR_CONFIG.isOnline = false; });
+  </script>
+
+  <style>
+    :root {
+      --bg-dark: #0a0a0f;
+      --bg-card: rgba(20, 20, 30, 0.95);
+      --bg-glass: rgba(255, 255, 255, 0.05);
+      --primary: #00d9ff;
+      --secondary: #7b2cbf;
+      --accent: #f093fb;
+      --success: #00ff88;
+      --warning: #ffbb00;
+      --danger: #ff4757;
+      --text: #ffffff;
+      --text-muted: #a0a0b0;
+      --border: rgba(255, 255, 255, 0.1);
+      --radius: 12px;
+      --shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    body.light-mode {
+      --bg-dark: #f0f2f8;
+      --bg-card: rgba(255, 255, 255, 0.98);
+      --bg-glass: rgba(0, 0, 0, 0.03);
+      --text: #1a1a2e;
+      --text-muted: #6c757d;
+      --border: rgba(0, 0, 0, 0.1);
+      --shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+      overflow: hidden;
+    }
+
+    .bg-animation {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: 
+        radial-gradient(circle at 20% 50%, rgba(0, 217, 255, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(123, 44, 191, 0.06) 0%, transparent 50%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    /* ===== HEADER COM STATS ===== */
+    .app-header {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 0;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      flex-shrink: 0;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 15px;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+    }
+
+    .logo-text {
+      font-size: 1.4rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Stats no Header */
+    .header-stats {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      flex: 1;
+    }
+
+    .header-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 5px 12px;
+      background: var(--bg-glass);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      min-width: 70px;
+    }
+
+    .header-stat-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--primary);
+      word-break: break-word;
+      text-align: center;
+    }
+
+    .header-stat-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+      text-align: center;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    /* ===== LAYOUT PRINCIPAL ===== */
+    .main-wrapper {
+      display: grid;
+      grid-template-columns: 280px 1fr 300px;
+      gap: 12px;
+      height: calc(100vh - 65px);
+      padding: 15px;
+      overflow: hidden;
+    }
+
+    .sidebar-col,
+    .main-col,
+    .ads-col {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 15px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    /* ===== COLUNA DE ANÚNCIOS (Direita) ===== */
+    .ads-col {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      overflow-y: auto;
+      padding-right: 5px;
+    }
+
+    .ad-space {
+      background: var(--bg-glass);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-align: center;
+      flex-shrink: 0;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .ad-space::before {
+      content: "📢 Anúncio";
+      position: absolute;
+      top: 5px;
+      right: 8px;
+      font-size: 0.65rem;
+      opacity: 0.6;
+    }
+
+    .ad-space.sidebar-ad {
+      width: 100%;
+      height: 250px;
+      min-height: 250px;
+    }
+
+    .ad-space.rectangle {
+      width: 100%;
+      height: 250px;
+      min-height: 250px;
+    }
+
+    .ad-space.skyscraper {
+      width: 100%;
+      height: 600px;
+      min-height: 600px;
+    }
+
+    .ad-space.ad-loaded::before {
+      content: "";
+    }
+
+    /* ===== CONTROLES ===== */
+    .form-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+
+    .form-select, .form-control {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-select:focus, .form-control:focus {
+      background: var(--bg-glass);
+      border-color: var(--primary);
+      color: var(--text);
+      box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.15);
+    }
+
+    .form-range {
+      height: 4px;
+    }
+
+    .form-range::-webkit-slider-thumb {
+      width: 14px;
+      height: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 50%;
+    }
+
+    /* ===== ÁREA DE TEXTO ===== */
+    .text-display {
+      background: var(--bg-glass);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 20px;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      font-size: 1.05rem;
+      line-height: 1.9;
+      color: var(--text);
+    }
+
+    .word {
+      cursor: pointer;
+      padding: 2px 5px;
+      border-radius: 5px;
+      display: inline;
+      transition: background 0.15s;
+      margin: 0 2px;
+    }
+
+    .word:hover {
+      background: rgba(0, 217, 255, 0.2);
+    }
+
+    .word.active {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      font-weight: 700;
+      border-radius: 5px;
+    }
+
+    .word.reading {
+      background: rgba(0, 217, 255, 0.15);
+      border-radius: 4px;
+    }
+
+    /* ===== PLAYER ===== */
+    .player-bar {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 12px 15px;
+      margin-top: auto;
+      margin-bottom: 0;
+      flex-shrink: 0;
+    }
+
+    .play-btn-main {
+      width: 55px;
+      height: 55px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: transform 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .play-btn-main:hover {
+      transform: scale(1.08);
+    }
+
+    .control-btn-sm {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg-glass);
+      color: var(--text);
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .control-btn-sm:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #000;
+    }
+
+    /* ===== UPLOAD ZONES ===== */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 20px 10px;
+      text-align: center;
+      transition: border-color 0.2s;
+      cursor: pointer;
+      background: var(--bg-glass);
+      flex-shrink: 0;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--primary);
+    }
+
+    .upload-zone.dragover {
+      border-color: var(--primary);
+      background: rgba(0, 217, 255, 0.05);
+    }
+
+    .ocr-upload-zone {
+      border: 2px dashed var(--secondary);
+      border-radius: var(--radius);
+      padding: 20px 10px;
+      text-align: center;
+      transition: all 0.2s;
+      cursor: pointer;
+      background: var(--bg-glass);
+      margin-top: 10px;
+    }
+
+    .ocr-upload-zone:hover {
+      border-color: var(--accent);
+      background: rgba(123, 44, 191, 0.1);
+    }
+
+    .ocr-upload-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(123, 44, 191, 0.15);
+    }
+
+    /* ===== OCR PROGRESS ===== */
+    .ocr-progress {
+      background: var(--bg-glass);
+      border-radius: var(--radius);
+      padding: 15px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .ocr-progress.show {
+      display: block;
+    }
+
+    .progress-bar-custom {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 4px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+
+    .ocr-status {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ocr-status i {
+      color: var(--primary);
+    }
+
+    /* ===== TABS ===== */
+    .nav-tabs {
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 15px;
+      flex-shrink: 0;
+    }
+
+    .nav-tabs .nav-link {
+      color: var(--text-muted);
+      border: none;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s;
+      background: transparent;
+    }
+
+    .nav-tabs .nav-link.active {
+      color: var(--primary);
+      background: var(--bg-glass);
+      border: none;
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .tab-content {
+      background: var(--bg-glass);
+      border-radius: var(--radius);
+      padding: 15px;
+      border: 1px solid var(--border);
+      margin-bottom: 15px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .tab-pane {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .image-preview {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: var(--radius);
+      margin: 10px 0;
+      display: none;
+      border: 1px solid var(--border);
+      object-fit: contain;
+    }
+
+    .image-preview.show {
+      display: block;
+    }
+
+    /* ===== TOAST ===== */
+    .toast-container {
+      position: fixed;
+      bottom: 100px;
+      right: 20px;
+      z-index: 9999;
+    }
+
+    .toast-custom {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border-left: 4px solid var(--primary);
+      color: var(--text);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      margin-top: 10px;
+      padding: 10px 15px;
+      font-size: 0.85rem;
+    }
+
+    .toast-custom.bg-success { border-left-color: var(--success); }
+    .toast-custom.bg-danger { border-left-color: var(--danger); }
+    .toast-custom.bg-warning { border-left-color: var(--warning); }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-dark); }
+    ::-webkit-scrollbar-thumb { 
+      background: linear-gradient(var(--primary), var(--secondary)); 
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+    /* ===== BUTTONS ===== */
+    .btn-gradient {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border: none;
+      color: white;
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 8px 16px;
+      transition: opacity 0.2s;
+    }
+
+    .btn-gradient:hover {
+      opacity: 0.9;
+      color: white;
+    }
+
+    .btn-outline-custom {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.8rem;
+      padding: 6px 12px;
+      transition: all 0.2s;
+    }
+
+    .btn-outline-custom:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #000;
+    }
+
+    .btn-ocr {
+      background: linear-gradient(135deg, var(--secondary), var(--accent));
+      border: none;
+      color: white;
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 8px 16px;
+      transition: opacity 0.2s;
+    }
+
+    .btn-ocr:hover {
+      opacity: 0.9;
+      color: white;
+    }
+
+    .btn-ocr:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .value-badge {
+      background: var(--bg-glass);
+      padding: 3px 10px;
+      border-radius: 15px;
+      font-size: 0.75rem;
+      color: var(--primary);
+      font-weight: 600;
+      border: 1px solid var(--border);
+    }
+
+    .spinner-ocr {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ===== RESPONSIVO ===== */
+    @media (max-width: 1200px) {
+      .main-wrapper {
+        grid-template-columns: 250px 1fr 250px;
+      }
+    }
+
+    @media (max-width: 992px) {
+      body {
+        overflow-y: auto;
+        padding-bottom: 100px;
+      }
+      
+      .header-content {
+        flex-direction: column;
+        gap: 10px;
+        padding: 5px 15px;
+      }
+      
+      .header-stats {
+        width: 100%;
+        justify-content: space-around;
+      }
+      
+      .header-stat {
+        min-width: 60px;
+        padding: 4px 8px;
+      }
+      
+      .header-stat-value {
+        font-size: 0.9rem;
+      }
+      
+      .header-stat-label {
+        font-size: 0.6rem;
+      }
+      
+      .main-wrapper {
+        height: auto;
+        grid-template-columns: 1fr;
+        padding: 10px;
+      }
+      
+      .glass-card,
+      .ads-col {
+        height: auto;
+        max-height: 400px;
+        margin-bottom: 15px;
+      }
+      
+      .text-display {
+        height: 350px;
+        padding: 15px;
+        font-size: 1rem;
+        flex: none;
+      }
+      
+      .player-bar {
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        z-index: 1000;
+        padding: 10px;
+        margin-bottom: 0;
+      }
+      
+      .play-btn-main {
+        width: 50px;
+        height: 50px;
+        font-size: 1.3rem;
+      }
+      
+      .control-btn-sm {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+      }
+      
+      .toast-container {
+        bottom: 90px;
+        right: 10px;
+        left: 10px;
+      }
+      
+      .ad-space.sidebar-ad,
+      .ad-space.rectangle {
+        height: 100px;
+        min-height: 100px;
+      }
+      
+      .ad-space.skyscraper {
+        height: 250px;
+        min-height: 250px;
+      }
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .hidden { display: none !important; }
+
+    .ocr-debug {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      max-height: 150px;
+      overflow-y: auto;
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-animation"></div>
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- ===== HEADER COM STATS ===== -->
+  <header class="app-header">
+    <div class="header-content">
+      <!-- Logo -->
+      <div class="logo">
+        <div class="logo-icon"><i class="bi bi-headphones"></i></div>
+        <div class="logo-text">VoxDoc <span style="font-size: 0.7em; color: var(--secondary);">+OCR</span></div>
+      </div>
+
+      <!-- Stats no Header -->
+      <div class="header-stats">
+        <div class="header-stat">
+          <span class="header-stat-value" id="fileName">-</span>
+          <span class="header-stat-label">📄 Arquivo</span>
+        </div>
+        <div class="header-stat">
+          <span class="header-stat-value" id="progress">0%</span>
+          <span class="header-stat-label">📍 Progresso</span>
+        </div>
+        <div class="header-stat">
+          <span class="header-stat-value" id="time">00:00</span>
+          <span class="header-stat-label">⏱️ Tempo</span>
+        </div>
+        <div class="header-stat">
+          <span class="header-stat-value" id="wordCount">0</span>
+          <span class="header-stat-label">📝 Palavras</span>
+        </div>
+        <div class="header-stat">
+          <span class="header-stat-value" id="sourceType">-</span>
+          <span class="header-stat-label">🔍 Origem</span>
+        </div>
+      </div>
+
+      <!-- Ações -->
+      <div class="header-actions">
+        <button class="btn btn-outline-custom btn-sm" id="themeBtn" title="Alternar Tema">
+          <i class="bi bi-moon-stars"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== MAIN WRAPPER ===== -->
+  <main class="container-fluid p-0">
+    <div class="main-wrapper">
+      
+      <!-- Sidebar Controls (Esquerda) -->
+      <div class="sidebar-col">
+        <div class="glass-card">
+          <h6 class="mb-3">
+            <i class="bi bi-sliders text-primary"></i> Voz
+          </h6>
+
+          <div class="mb-3">
+            <label class="form-label">🌐 Idioma OCR</label>
+            <select class="form-select" id="ocrLangSelect">
+              <option value="por">🇧🇷 Português</option>
+              <option value="eng">🇺🇸 English</option>
+              <option value="spa">🇪🇸 Español</option>
+              <option value="fra">🇫🇷 Français</option>
+              <option value="deu">🇩🇪 Deutsch</option>
+              <option value="ita">🇮🇹 Italiano</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">🔊 Voz</label>
+            <select class="form-select" id="voiceSelect"></select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label d-flex justify-content-between">
+              <span>⚡ Velocidade</span>
+              <span class="value-badge" id="rateValue">1.0x</span>
+            </label>
+            <input type="range" class="form-range" id="rateRange" min="0.5" max="2" step="0.05" value="1">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label d-flex justify-content-between">
+              <span>🎵 Tom</span>
+              <span class="value-badge" id="pitchValue">1.0</span>
+            </label>
+            <input type="range" class="form-range" id="pitchRange" min="0.5" max="2" step="0.05" value="1">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label d-flex justify-content-between">
+              <span>📢 Volume</span>
+              <span class="value-badge" id="volumeValue">100%</span>
+            </label>
+            <input type="range" class="form-range" id="volumeRange" min="0" max="1" step="0.05" value="1">
+          </div>
+
+          <hr style="border-color: var(--border); margin: 15px 0;">
+
+        
+
+          <h6 class="mb-3">
+            <i class="bi bi-file-earmark text-primary"></i> Arquivos
+          </h6>
+
+          <button class="btn btn-gradient w-100" id="fileBtn">
+            <i class="bi bi-folder-open"></i> Documento
+          </button>
+          <input type="file" id="fileInput" hidden accept=".txt,.md,.html,.pdf,.docx">
+
+          <div class="upload-zone mt-2" id="dropZone">
+            <i class="bi bi-cloud-arrow-up" style="font-size: 1.5rem; color: var(--primary);"></i>
+            <div class="fw-semibold" style="font-size: 0.8rem;">Arraste documento</div>
+          </div>
+
+          <hr style="border-color: var(--border); margin: 15px 0;">
+
+          <h6 class="mb-3">
+            <i class="bi bi-image text-secondary"></i> OCR Imagem
+          </h6>
+
+          <button class="btn btn-ocr w-100" id="ocrBtn">
+            <i class="bi bi-camera"></i> Extrair Texto
+          </button>
+          <input type="file" id="ocrInput" hidden accept=".png,.jpg,.jpeg,.webp,.bmp,.gif">
+
+          <div class="ocr-upload-zone mt-2" id="ocrDropZone">
+            <i class="bi bi-image" style="font-size: 1.5rem; color: var(--secondary);"></i>
+            <div class="fw-semibold" style="font-size: 0.8rem;">Arraste imagem</div>
+          </div>
+
+          <div class="ocr-progress" id="ocrProgress">
+            <div class="d-flex justify-content-between align-items-center">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Processando...</span>
+              <div class="spinner-ocr"></div>
+            </div>
+            <div class="progress-bar-custom">
+              <div class="progress-fill" id="ocrProgressFill"></div>
+            </div>
+            <div class="ocr-status" id="ocrStatus">
+              <i class="bi bi-hourglass-split"></i>
+              <span id="ocrStatusText">Iniciando OCR...</span>
+            </div>
+          </div>
+
+          <div class="ocr-debug" id="ocrDebug" style="display: none;">
+            <strong>Debug:</strong>
+            <span id="ocrDebugText"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content Area (Centro) -->
+      <div class="main-col">
+        <!-- ANÚNCIO LEADERBOARD -->
+        <div class="ad-space rectangle" id="adLeaderboard" style="height: 90px; min-height: 90px;">
+          <!-- Substitua pelo código do seu anúncio -->
+        </div>
+
+        <ul class="nav nav-tabs" id="contentTabs">
+          <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#fileTab">
+              <i class="bi bi-file-text"></i> Arquivo
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pasteTab">
+              <i class="bi bi-clipboard"></i> Colar
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#ocrTab">
+              <i class="bi bi-image"></i> Imagem (OCR)
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <!-- File Tab -->
+          <div class="tab-pane fade show active" id="fileTab">
+            <div id="textDisplay" class="text-display">
+              <div class="text-center py-5">
+                <i class="bi bi-file-earmark" style="font-size: 3rem; color: var(--text-muted); opacity: 0.5;"></i>
+                <p class="mt-3 text-muted">Carregue um arquivo, imagem ou cole texto</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paste Tab -->
+          <div class="tab-pane fade" id="pasteTab">
+            <textarea class="form-control mb-3" id="pasteText" rows="8" placeholder="Cole seu texto aqui..."></textarea>
+            <button class="btn btn-gradient w-100" id="pasteBtn">
+              <i class="bi bi-play-fill"></i> Ler Texto
+            </button>
+          </div>
+
+          <!-- OCR Tab -->
+          <div class="tab-pane fade" id="ocrTab">
+            <div id="ocrTextDisplay" class="text-display">
+              <div class="text-center py-5">
+                <i class="bi bi-image" style="font-size: 3rem; color: var(--text-muted); opacity: 0.5;"></i>
+                <p class="mt-3 text-muted">Carregue uma imagem para extrair texto</p>
+                <p class="text-muted" style="font-size: 0.85rem;">Formatos: PNG, JPG, JPEG, WEBP, BMP, GIF</p>
+              </div>
+            </div>
+            <button class="btn btn-ocr w-100 mt-3" id="ocrReadBtn" disabled>
+              <i class="bi bi-play-fill"></i> Ler Texto da Imagem
+            </button>
+          </div>
+        </div>
+
+        <!-- Player Controls -->
+        <div class="player-bar">
+          <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+            <button class="control-btn-sm" id="backBtn" title="Voltar">
+              <i class="bi bi-skip-start-fill"></i>
+            </button>
+            <button class="control-btn-sm" id="slowerBtn" title="Diminuir">
+              <i class="bi bi-dash"></i>
+            </button>
+            <button class="play-btn-main" id="playBtn">
+              <i class="bi bi-play-fill"></i>
+            </button>
+            <button class="control-btn-sm" id="fasterBtn" title="Aumentar">
+              <i class="bi bi-plus"></i>
+            </button>
+            <button class="control-btn-sm" id="forwardBtn" title="Avançar">
+              <i class="bi bi-skip-end-fill"></i>
+            </button>
+            <button class="control-btn-sm" id="stopBtn" title="Parar">
+              <i class="bi bi-stop-fill"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== COLUNA DE ANÚNCIOS (Direita) ===== -->
+      <div class="ads-col">
+        <!-- Anúncio 1: Rectangle (300x250) -->
+        <div class="ad-space rectangle" id="adRight1">
+          <!-- Substitua pelo código do seu anúncio -->
+        </div>
+
+        <!-- Anúncio 2: Skyscraper (300x600) -->
+        <div class="ad-space skyscraper" id="adRight2">
+          <!-- Substitua pelo código do seu anúncio -->
+        </div>
+
+        <!-- Anúncio 3: Extra -->
+        <div class="ad-space rectangle" id="adRight3">
+          <!-- Substitua pelo código do seu anúncio -->
+        </div>
+      </div>
+      
+    </div>
+  </main>
+
+  <script src="./JS/bootstrap.bundle.min.js"></script>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const synth = window.speechSynthesis;
+    
+    let voices = [];
+    let words = [];
+    let currentWordIndex = 0;
+    let playing = false;
+    let paused = false;
+    let fileName = '';
+    let startTime = 0;
+    let timer = null;
+    let phrases = [];
+    let phraseMap = [];
+    let currentPhrase = 0;
+    let phraseStartTime = 0;
+    let highlightAnimation = null;
+    let currentSpeed = 1.0;
+    let currentSource = 'none';
+    let ocrText = '';
+    let ocrProcessing = false;
+
+    const showToast = (message, type = 'info') => {
+      const toast = document.createElement('div');
+      toast.className = `toast toast-custom bg-${type === 'ok' ? 'success' : type === 'err' ? 'danger' : type === 'warning' ? 'warning' : 'primary'} show`;
+      toast.innerHTML = `<i class="bi bi-${type === 'ok' ? 'check-circle' : type === 'err' ? 'x-circle' : 'info-circle'}"></i> ${message}`;
+      $('toastContainer').appendChild(toast);
+      setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
+    };
+
+    const formatTime = ms => {
+      const total = Math.floor(ms / 1000);
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
+    function splitIntoPhrases(text) {
+      text = text.replace(/\b(Dr|Dra|Sr|Sra|Exmo|Ilmo|Prof|Eng|etc)\.\s*/gi, '$1<ABBR>');
+      text = text.replace(/\d+\.\d+/g, m => m.replace(/\./g, '<DOT>'));
+      text = text.replace(/https?:\/\/[^\s]+/g, m => m.replace(/\./g, '<URLDOT>'));
+      
+      let parts = text.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÚÁ-úá-ú])|(?<=[.!?])\s*$/);
+      parts = parts.map(s => s.replace(/<ABBR>/g, '. ').replace(/<DOT>/g, '.').replace(/<URLDOT>/g, '.'));
+      
+      let phrases = [];
+      parts.forEach(part => {
+        const subParts = part.split(/(?<=[,;:])\s+/);
+        subParts.forEach(sp => {
+          const trimmed = sp.trim();
+          if (trimmed.length > 0) phrases.push(trimmed);
+        });
+      });
+      
+      return phrases.filter(p => p.length > 0);
+    }
+
+    function mapWordsToPhrases(words, phrases) {
+      const mapping = [];
+      let wordIdx = 0;
+      phrases.forEach((phrase, pIdx) => {
+        const phraseWords = phrase.split(/\s+/).filter(w => w);
+        const startIdx = wordIdx;
+        wordIdx += phraseWords.length;
+        mapping.push({
+          phraseIdx: pIdx,
+          text: phrase,
+          wordStart: startIdx,
+          wordEnd: wordIdx - 1,
+          words: phraseWords
+        });
+      });
+      return mapping;
+    }
+
+    const loadVoices = () => {
+      voices = synth.getVoices();
+      const sel = $('voiceSelect');
+      sel.innerHTML = '';
+      
+      const pref = ['pt-BR', 'pt-PT', 'en-US', 'es-ES', 'fr-FR'];
+      const sorted = [...voices].sort((a, b) => {
+        const ai = pref.findIndex(p => a.lang.startsWith(p.split('-')[0]));
+        const bi = pref.findIndex(p => b.lang.startsWith(p.split('-')[0]));
+        const aNat = a.name.toLowerCase().includes('natural') || a.name.toLowerCase().includes('premium') ? -1 : 0;
+        const bNat = b.name.toLowerCase().includes('natural') || b.name.toLowerCase().includes('premium') ? -1 : 0;
+        return aNat - bNat || (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+
+      sorted.forEach((v, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        const flag = {'pt-BR':'🇧🇷','pt-PT':'🇵🇹','en-US':'🇺🇸','es-ES':'🇪🇸','fr-FR':'🇫🇷'}[v.lang] || '🌐';
+        const quality = v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('premium') ? '⭐ ' : '';
+        opt.textContent = `${quality}${flag} ${v.name}`;
+        sel.appendChild(opt);
+      });
+
+      const saved = localStorage.getItem('voxdoc_voice');
+      if (saved && sorted[saved]) sel.value = saved;
+    };
+
+    loadVoices();
+    synth.onvoiceschanged = loadVoices;
+
+    const processFile = async (file) => {
+      if (!file) return;
+      
+      fileName = file.name;
+      $('fileName').textContent = fileName.length > 15 ? fileName.slice(0, 12) + '...' : fileName;
+      currentSource = 'file';
+      $('sourceType').textContent = '📄 Documento';
+      
+      try {
+        let text = '';
+        const ext = file.name.split('.').pop().toLowerCase();
+        
+        if (ext === 'txt' || ext === 'md') {
+          text = await file.text();
+        } else if (ext === 'html') {
+          text = await file.text();
+          text = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+        } else if (ext === 'pdf') {
+          if (typeof pdfjsLib === 'undefined') {
+            text = await file.text();
+            showToast('PDF sem biblioteca.', 'warning');
+          } else {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = './JS/pdf.worker.min.js';
+            const buf = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(buf).promise;
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const content = await page.getTextContent();
+              text += content.items.map(it => it.str).join(' ') + '\n';
+            }
+          }
+        } else if (ext === 'docx') {
+          if (typeof mammoth === 'undefined') {
+            text = await file.text();
+            showToast('DOCX sem biblioteca.', 'warning');
+          } else {
+            const buf = await file.arrayBuffer();
+            const res = await mammoth.extractRawText({ arrayBuffer: buf });
+            text = res.value;
+          }
+        } else {
+          throw new Error('Formato não suportado');
+        }
+        
+        words = text.split(/\s+/).filter(w => w.trim());
+        phrases = splitIntoPhrases(text);
+        phraseMap = mapWordsToPhrases(words, phrases);
+        currentWordIndex = 0;
+        currentPhrase = 0;
+        
+        renderText();
+        $('wordCount').textContent = words.length.toLocaleString();
+        highlightWord(0);
+        showToast(`${words.length} palavras • ${phrases.length} frases`, 'ok');
+        
+      } catch (e) {
+        const errorMsg = e && e.message ? e.message : 'Erro desconhecido';
+        showToast('Erro: ' + errorMsg, 'err');
+        $('textDisplay').innerHTML = `<div class="text-center text-danger py-5"><i class="bi bi-x-circle" style="font-size: 2rem;"></i><p class="mt-2">${errorMsg}</p></div>`;
+      }
+    };
+
+    const renderText = () => {
+      const container = $('textDisplay');
+      container.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      
+      words.forEach((w, i) => {
+        const span = document.createElement('span');
+        span.className = 'word';
+        span.textContent = w + ' ';
+        span.dataset.index = i;
+        span.onclick = () => clickToRead(i);
+        frag.appendChild(span);
+      });
+      
+      container.appendChild(frag);
+    };
+
+    const renderOCRText = () => {
+      const container = $('ocrTextDisplay');
+      container.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      
+      words.forEach((w, i) => {
+        const span = document.createElement('span');
+        span.className = 'word';
+        span.textContent = w + ' ';
+        span.dataset.index = i;
+        span.onclick = () => clickToRead(i);
+        frag.appendChild(span);
+      });
+      
+      container.appendChild(frag);
+    };
+
+    // =====================
+    // OCR - Online/Offline
+    // =====================
+    const processOCR = async (file) => {
+      if (!file) return;
+      
+      const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/bmp', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        showToast('Formato de imagem não suportado', 'err');
+        return;
+      }
+
+      if (ocrProcessing) {
+        showToast('OCR já está em processamento', 'warning');
+        return;
+      }
+
+      if (typeof Tesseract === 'undefined') {
+        showToast('Biblioteca OCR não carregada.', 'err');
+        return;
+      }
+
+      ocrProcessing = true;
+      $('ocrBtn').disabled = true;
+      $('ocrReadBtn').disabled = true;
+
+      fileName = file.name;
+      $('fileName').textContent = fileName.length > 15 ? fileName.slice(0, 12) + '...' : fileName;
+      currentSource = 'ocr';
+      $('sourceType').textContent = '🖼️ Imagem (OCR)';
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.className = 'image-preview show';
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '200px';
+        img.style.borderRadius = 'var(--radius)';
+        img.style.margin = '10px 0';
+        $('ocrTextDisplay').innerHTML = '';
+        $('ocrTextDisplay').appendChild(img);
+      };
+      reader.readAsDataURL(file);
+
+      $('ocrProgress').classList.add('show');
+      $('ocrProgressFill').style.width = '10%';
+      $('ocrStatusText').textContent = 'Preparando OCR...';
+
+      try {
+        const ocrLang = $('ocrLangSelect').value || 'por';
+        const config = window.VOXDOC_OCR_CONFIG || {};
+        
+        const tessConfig = {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const progress = Math.round(30 + (m.progress * 70));
+              $('ocrProgressFill').style.width = `${progress}%`;
+              $('ocrStatusText').textContent = `Reconhecendo: ${Math.round(m.progress * 100)}%`;
+            } else if (m.status === 'loading language') {
+              $('ocrStatusText').textContent = config.isOnline 
+                ? 'Baixando dados de idioma...' 
+                : 'Carregando idioma (offline)...';
+              $('ocrProgressFill').style.width = '50%';
+            } else if (m.status === 'initializing') {
+              $('ocrStatusText').textContent = 'Inicializando OCR...';
+              $('ocrProgressFill').style.width = '70%';
+            }
+          }
+        };
+
+        if (!config.isOnline && config.langPath) {
+          tessConfig.workerPath = config.workerPath;
+          tessConfig.langPath = config.langPath;
+          tessConfig.corePath = config.corePath;
+        }
+
+        const result = await Tesseract.recognize(file, ocrLang, tessConfig);
+
+        let text = result?.data?.text || result?.text || '';
+        ocrText = text.replace(/[^\w\sàáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ.,!?;:()\-'"]/g, ' ')
+                      .replace(/\s+/g, ' ')
+                      .trim();
+
+        $('ocrProgressFill').style.width = '100%';
+
+        if (!ocrText || ocrText.length < 3) {
+          throw new Error('Texto não detectado. Use imagem com texto claro.');
+        }
+
+        words = ocrText.split(/\s+/).filter(w => w.trim());
+        phrases = splitIntoPhrases(ocrText);
+        phraseMap = mapWordsToPhrases(words, phrases);
+        currentWordIndex = 0;
+        currentPhrase = 0;
+
+        renderOCRText();
+        renderText();
+        
+        $('wordCount').textContent = words.length.toLocaleString();
+        highlightWord(0);
+
+        setTimeout(() => {
+          $('ocrProgress').classList.remove('show');
+        }, 1500);
+
+        $('ocrBtn').disabled = false;
+        $('ocrReadBtn').disabled = false;
+        ocrProcessing = false;
+        
+        showToast(`${words.length} palavras extraídas!`, 'ok');
+        document.querySelector('[data-bs-target="#ocrTab"]').click();
+
+      } catch (e) {
+        console.error('OCR Error:', e);
+        $('ocrProgress').classList.remove('show');
+        $('ocrBtn').disabled = false;
+        $('ocrReadBtn').disabled = false;
+        ocrProcessing = false;
+        
+        const errorMsg = e?.message || 'Erro no OCR';
+        showToast('Erro OCR: ' + errorMsg, 'err');
+        
+        $('ocrTextDisplay').innerHTML = `
+          <div class="text-center text-danger py-5">
+            <i class="bi bi-x-circle" style="font-size: 2rem;"></i>
+            <p class="mt-2">${errorMsg}</p>
+            ${!window.VOXDOC_OCR_CONFIG?.isOnline ? 
+              '<p class="text-muted small">💡 Dica: Para OCR offline, baixe os arquivos em JS/lang-data/</p>' : ''}
+          </div>
+        `;
+      }
+    };
+
+    const processPastedText = () => {
+      const text = $('pasteText').value.trim();
+      if (!text) { showToast('Cole algum texto', 'warning'); return; }
+      
+      fileName = 'Texto Colado';
+      $('fileName').textContent = '📋 Texto';
+      currentSource = 'paste';
+      $('sourceType').textContent = '📋 Colado';
+      
+      words = text.split(/\s+/).filter(w => w.trim());
+      phrases = splitIntoPhrases(text);
+      phraseMap = mapWordsToPhrases(words, phrases);
+      currentWordIndex = 0;
+      currentPhrase = 0;
+      
+      renderText();
+      $('wordCount').textContent = words.length.toLocaleString();
+      highlightWord(0);
+      showToast(`${words.length} palavras`, 'ok');
+      
+      document.querySelector('[data-bs-target="#fileTab"]').click();
+    };
+
+    const clickToRead = (wordIndex) => {
+      stop();
+      currentWordIndex = wordIndex;
+      
+      const phraseIdx = phraseMap.findIndex(m => 
+        wordIndex >= m.wordStart && wordIndex <= m.wordEnd
+      );
+      
+      if (phraseIdx !== -1) currentPhrase = phraseIdx;
+      
+      highlightWord(wordIndex);
+      updateProgress();
+      showToast(`Palavra ${wordIndex + 1}`, 'info');
+      
+      setTimeout(() => { play(); }, 300);
+    };
+
+    const getVoice = () => {
+      const idx = $('voiceSelect').value;
+      return voices[idx] || voices.find(v => v.lang.startsWith($('ocrLangSelect').value.split('-')[0])) || voices[0];
+    };
+
+    const speak = (text, onEnd) => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.voice = getVoice();
+      u.lang = $('ocrLangSelect').value;
+      u.rate = parseFloat($('rateRange').value);
+      u.pitch = parseFloat($('pitchRange').value);
+      u.volume = parseFloat($('volumeRange').value);
+      u.onend = onEnd;
+      u.onerror = () => stop();
+      synth.speak(u);
+    };
+
+    const updatePhraseHighlight = () => {
+      if (!playing || paused || currentPhrase >= phraseMap.length) return;
+      
+      const mapping = phraseMap[currentPhrase];
+      if (!mapping) return;
+      
+      const elapsed = Date.now() - phraseStartTime;
+      currentSpeed = parseFloat($('rateRange').value);
+      const phraseDuration = Math.max(1000, (mapping.text.length * 55) / currentSpeed);
+      const progress = Math.min(1, elapsed / phraseDuration);
+      
+      const wordCount = mapping.words.length;
+      const currentWordInPhrase = Math.floor(progress * wordCount);
+      const globalWordIdx = mapping.wordStart + currentWordInPhrase;
+      
+      document.querySelectorAll('.word.active').forEach(el => el.classList.remove('active'));
+      const spans = document.querySelectorAll('.word');
+      if (spans[globalWordIdx]) {
+        spans[globalWordIdx].classList.add('active');
+        const rect = spans[globalWordIdx].getBoundingClientRect();
+        if (rect.top < 100 || rect.bottom > window.innerHeight - 100) {
+          spans[globalWordIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      
+      if (playing && !paused && currentPhrase < phrases.length) {
+        highlightAnimation = requestAnimationFrame(updatePhraseHighlight);
+      }
+    };
+
+    const readNextPhrase = () => {
+      if (currentPhrase >= phrases.length) { stop(); showToast('Leitura concluída!', 'ok'); return; }
+      
+      const phrase = phrases[currentPhrase];
+      const mapping = phraseMap[currentPhrase];
+      
+      if (mapping) {
+        highlightRange(mapping.wordStart, mapping.wordEnd);
+        const spans = document.querySelectorAll('.word');
+        if (spans[mapping.wordStart]) {
+          spans[mapping.wordStart].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      
+      phraseStartTime = Date.now();
+      
+      speak(phrase, () => {
+        if (playing && !paused) {
+          currentPhrase++;
+          currentWordIndex = mapping ? mapping.wordEnd + 1 : currentWordIndex + 1;
+          updateProgress();
+          readNextPhrase();
+        }
+      });
+      
+      if (highlightAnimation) cancelAnimationFrame(highlightAnimation);
+      highlightAnimation = requestAnimationFrame(updatePhraseHighlight);
+    };
+
+    const highlightRange = (start, end) => {
+      document.querySelectorAll('.word.active, .word.reading').forEach(el => el.classList.remove('active', 'reading'));
+      const spans = document.querySelectorAll('.word');
+      if (spans[start]) spans[start].classList.add('active');
+      for (let i = start + 1; i <= end && i < spans.length; i++) spans[i].classList.add('reading');
+    };
+
+    const highlightWord = (i) => {
+      document.querySelectorAll('.word.active, .word.reading').forEach(el => el.classList.remove('active', 'reading'));
+      const spans = document.querySelectorAll('.word');
+      if (spans[i]) {
+        spans[i].classList.add('active');
+        spans[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    };
+
+    const play = () => {
+      if (!words || words.length === 0) { 
+        showToast('Carregue um arquivo ou imagem primeiro', 'warning'); 
+        return; 
+      }
+      
+      if (paused) {
+        synth.resume();
+        paused = false;
+        $('playBtn').innerHTML = '<i class="bi bi-pause-fill"></i>';
+        startTimer();
+        highlightAnimation = requestAnimationFrame(updatePhraseHighlight);
+        return;
+      }
+      
+      if (playing) {
+        synth.pause();
+        paused = true;
+        $('playBtn').innerHTML = '<i class="bi bi-play-fill"></i>';
+        stopTimer();
+        if (highlightAnimation) cancelAnimationFrame(highlightAnimation);
+        return;
+      }
+      
+      playing = true;
+      paused = false;
+      $('playBtn').innerHTML = '<i class="bi bi-pause-fill"></i>';
+      readNextPhrase();
+      startTimer();
+    };
+
+    const stop = () => {
+      synth.cancel();
+      playing = false;
+      paused = false;
+      $('playBtn').innerHTML = '<i class="bi bi-play-fill"></i>';
+      stopTimer();
+      if (highlightAnimation) cancelAnimationFrame(highlightAnimation);
+      highlightAnimation = null;
+    };
+
+    const restart = () => { stop(); currentWordIndex = 0; currentPhrase = 0; highlightWord(0); updateProgress(); setTimeout(play, 100); };
+    const jumpTo = (i) => { stop(); currentWordIndex = i; const p = phraseMap.findIndex(m => i >= m.wordStart && i <= m.wordEnd); if (p !== -1) currentPhrase = p; highlightWord(i); updateProgress(); };
+
+    const updateProgress = () => {
+      if (words.length) $('progress').textContent = Math.round((currentWordIndex / words.length) * 100) + '%';
+      if (fileName && fileName !== 'Texto Colado') {
+        const p = JSON.parse(localStorage.getItem('voxdoc_progress') || '{}');
+        p[fileName] = currentWordIndex;
+        localStorage.setItem('voxdoc_progress', JSON.stringify(p));
+      }
+    };
+
+    const startTimer = () => { if (timer) return; startTime = Date.now(); timer = setInterval(() => $('time').textContent = formatTime(Date.now() - startTime), 1000); };
+    const stopTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
+
+    const toggleTheme = () => {
+      document.body.classList.toggle('light-mode');
+      const isLight = document.body.classList.contains('light-mode');
+      $('themeBtn').innerHTML = isLight ? '<i class="bi bi-moon-stars"></i>' : '<i class="bi bi-sun"></i>';
+      localStorage.setItem('voxdoc_theme', isLight ? 'light' : 'dark');
+    };
+
+    // =====================
+    // CARREGAR ANÚNCIOS
+    // =====================
+    const loadAds = () => {
+      // Para Google AdSense, descomente e configure:
+      /*
+      if (typeof adsbygoogle !== 'undefined') {
+        (adsbygoogle = window.adsbygoogle || []).push({});
+        document.querySelectorAll('.ad-space').forEach(ad => {
+          ad.classList.add('ad-loaded');
+        });
+      }
+      */
+      console.log('📢 Espaços para anúncios carregados');
+    };
+
+    // =====================
+    // EVENTOS
+    // =====================
+    $('fileBtn').onclick = () => $('fileInput').click();
+    $('fileInput').onchange = e => processFile(e.target.files[0]);
+    
+    $('playBtn').onclick = play;
+    $('stopBtn').onclick = stop;
+    $('ocrReadBtn').onclick = play;
+    
+    $('backBtn').onclick = () => jumpTo(Math.max(0, currentWordIndex - 50));
+    $('forwardBtn').onclick = () => jumpTo(Math.min(words.length - 1, currentWordIndex + 50));
+    
+    $('slowerBtn').onclick = () => { $('rateRange').value = Math.max(0.5, parseFloat($('rateRange').value) - 0.1); $('rateValue').textContent = $('rateRange').value + 'x'; };
+    $('fasterBtn').onclick = () => { $('rateRange').value = Math.min(2, parseFloat($('rateRange').value) + 0.1); $('rateValue').textContent = $('rateRange').value + 'x'; };
+    
+    $('themeBtn').onclick = toggleTheme;
+    
+    $('rateRange').oninput = e => { $('rateValue').textContent = e.target.value + 'x'; currentSpeed = parseFloat(e.target.value); };
+    $('pitchRange').oninput = e => $('pitchValue').textContent = e.target.value;
+    $('volumeRange').oninput = e => $('volumeValue').textContent = Math.round(e.target.value * 100) + '%';
+    $('voiceSelect').onchange = () => localStorage.setItem('voxdoc_voice', $('voiceSelect').value);
+    $('ocrLangSelect').onchange = () => { if (playing) { stop(); setTimeout(play, 100); } };
+
+    $('pasteBtn').onclick = processPastedText;
+
+    $('ocrBtn').onclick = () => $('ocrInput').click();
+    $('ocrInput').onchange = e => processOCR(e.target.files[0]);
+
+    const dropZone = $('dropZone');
+    dropZone.onclick = () => $('fileInput').click();
+    dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+    dropZone.ondrop = e => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); };
+
+    const ocrDropZone = $('ocrDropZone');
+    ocrDropZone.onclick = () => $('ocrInput').click();
+    ocrDropZone.ondragover = e => { e.preventDefault(); ocrDropZone.classList.add('dragover'); };
+    ocrDropZone.ondragleave = () => ocrDropZone.classList.remove('dragover');
+    ocrDropZone.ondrop = e => { 
+      e.preventDefault(); 
+      ocrDropZone.classList.remove('dragover'); 
+      if (e.dataTransfer.files[0]) processOCR(e.dataTransfer.files[0]); 
+    };
+
+    document.addEventListener('keydown', e => {
+      if (['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+      if (e.code === 'Space') { e.preventDefault(); play(); }
+      else if (e.code === 'Escape') stop();
+      else if (e.ctrlKey && e.code === 'KeyR') { e.preventDefault(); restart(); }
+      else if (e.ctrlKey && e.code === 'KeyO') { e.preventDefault(); $('fileInput').click(); }
+      else if (e.ctrlKey && e.code === 'KeyI') { e.preventDefault(); $('ocrInput').click(); }
+    });
+
+    if (localStorage.getItem('voxdoc_theme') === 'light') {
+      document.body.classList.add('light-mode');
+      $('themeBtn').innerHTML = '<i class="bi bi-moon-stars"></i>';
+    }
+
+    window.addEventListener('load', () => {
+      loadVoices();
+      loadAds();
+      console.log('🎧 VoxDoc + OCR – Pronto para usar!');
+      console.log('✅ Tesseract disponível:', typeof Tesseract !== 'undefined');
+      console.log('🌐 Online:', window.VOXDOC_OCR_CONFIG?.isOnline);
+    });
+  </script>
+</body>
+</html>
