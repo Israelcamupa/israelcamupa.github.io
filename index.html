@@ -1,817 +1,493 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VoxDoc – Leitor de Documentos com OCR</title>
+  <meta name="description" content="VoxDoc – Leitor de documentos com OCR e Text-to-Speech offline">
+  <meta name="theme-color" content="#0a0a0f">
+  <title>VoxDoc+ – Leitor Inteligente com OCR</title>
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
   
   <!-- Bootstrap 5 -->
   <link href="./CSS/bootstrap.min.css" rel="stylesheet">
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-  <!-- Tesseract.js -->
-  <script src="./JS/tesseract.min.js"></script>
-
-  <!-- Bibliotecas offline -->
-  <script src="./JS/pdf.min.js"></script>
-  <script src="./JS/pdf.worker.min.js"></script>
-  <script src="./JS/mammoth.browser.min.js"></script>
-  <script src="./JS/lame.min.js"></script>
-
-  <!-- Configuração OCR Online/Offline -->
+  
+  <!-- Google AdSense - CARREGAR NO HEAD -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4152817214792052" crossorigin="anonymous"></script>
+  
+  <!-- Configuração OCR e Ads -->
   <script>
-    window.VOXDOC_OCR_CONFIG = {
-      isOnline: navigator.onLine,
-      workerPath: './JS/worker.min.js',
-      langPath: './JS/lang-data/',
-      corePath: './JS/tesseract-core.wasm.js',
-      fallbackOnline: true
+    window.VOXDOC_CONFIG = {
+      ocr: {
+        isOnline: navigator.onLine,
+        workerPath: '/JS/worker.min.js',
+        langPath: '/JS/lang-data/',
+        corePath: '/JS/tesseract-core.wasm.js',
+        fallbackOnline: true,
+        supportedLangs: {
+          por: { name: 'Português', flag: '🇧🇷', file: 'por.traineddata.gz' },
+          eng: { name: 'English', flag: '🇺🇸', file: 'eng.traineddata.gz' },
+          spa: { name: 'Español', flag: '🇪🇸', file: 'spa.traineddata.gz' },
+          fra: { name: 'Français', flag: '🇫🇷', file: 'fra.traineddata.gz' },
+          deu: { name: 'Deutsch', flag: '🇩🇪', file: 'deu.traineddata.gz' },
+          ita: { name: 'Italiano', flag: '🇮🇹', file: 'ita.traineddata.gz' }
+        }
+      },
+      paths: { base: window.location.origin, js: '/JS', css: '/CSS', langData: '/JS/lang-data' }
     };
-    window.addEventListener('online', () => { window.VOXDOC_OCR_CONFIG.isOnline = true; });
-    window.addEventListener('offline', () => { window.VOXDOC_OCR_CONFIG.isOnline = false; });
+    
+    window.VOXDOC_ADS = {
+      client: 'ca-pub-4152817214792052',
+      slots: {
+        right1: '5391406597',
+        right2: 'SEU_SLOT_SKYSCRAPER_AQUI',
+        right3: 'SEU_SLOT_RECTANGLE_AQUI'
+      }
+    };
+    
+    window.addEventListener('online', () => { window.VOXDOC_CONFIG.ocr.isOnline = true; });
+    window.addEventListener('offline', () => { window.VOXDOC_CONFIG.ocr.isOnline = false; });
   </script>
 
   <style>
     :root {
-      --bg-dark: #0a0a0f;
-      --bg-card: rgba(20, 20, 30, 0.95);
-      --bg-glass: rgba(255, 255, 255, 0.05);
-      --primary: #00d9ff;
-      --secondary: #7b2cbf;
-      --accent: #f093fb;
-      --success: #00ff88;
-      --warning: #ffbb00;
-      --danger: #ff4757;
-      --text: #ffffff;
-      --text-muted: #a0a0b0;
-      --border: rgba(255, 255, 255, 0.1);
-      --radius: 12px;
-      --shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      --bg-dark: #0a0a0f; --bg-card: rgba(20, 20, 30, 0.95); --bg-glass: rgba(255, 255, 255, 0.05);
+      --primary: #00d9ff; --secondary: #7b2cbf; --accent: #f093fb; --success: #00ff88;
+      --warning: #ffbb00; --danger: #ff4757; --text: #ffffff; --text-muted: #a0a0b0;
+      --border: rgba(255, 255, 255, 0.1); --radius: 12px; --shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      --transition: all 0.2s ease;
     }
-
     body.light-mode {
-      --bg-dark: #f0f2f8;
-      --bg-card: rgba(255, 255, 255, 0.98);
-      --bg-glass: rgba(0, 0, 0, 0.03);
-      --text: #1a1a2e;
-      --text-muted: #6c757d;
-      --border: rgba(0, 0, 0, 0.1);
-      --shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+      --bg-dark: #f8f9fa; --bg-card: rgba(255, 255, 255, 0.98); --bg-glass: rgba(0, 0, 0, 0.03);
+      --text: #1a1a2e; --text-muted: #495057; --border: rgba(0, 0, 0, 0.1);
+      --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg-dark);
-      color: var(--text);
-      min-height: 100vh;
-      transition: background 0.3s, color 0.3s;
-      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-dark); color: var(--text); min-height: 100vh;
+      transition: var(--transition); overflow-x: hidden; line-height: 1.5;
     }
-
     .bg-animation {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: 
-        radial-gradient(circle at 20% 50%, rgba(0, 217, 255, 0.06) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(123, 44, 191, 0.06) 0%, transparent 50%);
-      z-index: -1;
-      pointer-events: none;
+      position: fixed; inset: 0;
+      background: radial-gradient(circle at 20% 50%, rgba(0, 217, 255, 0.06) 0%, transparent 50%),
+                  radial-gradient(circle at 80% 80%, rgba(123, 44, 191, 0.06) 0%, transparent 50%);
+      z-index: -1; pointer-events: none; animation: pulse 20s ease-in-out infinite;
     }
-
-    /* ===== HEADER COM STATS ===== */
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.8; } }
+    
     .app-header {
-      background: var(--bg-card);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-      padding: 8px 0;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      flex-shrink: 0;
+      background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border); padding: 8px 0; position: sticky; top: 0;
+      z-index: 1000; flex-shrink: 0; transition: var(--transition);
     }
-
     .header-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 15px;
-      gap: 15px;
-      flex-wrap: wrap;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 15px; gap: 12px; flex-wrap: wrap;
     }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-
+    .logo { display: flex; align-items: center; gap: 10px; flex-shrink: 0; cursor: pointer; }
     .logo-icon {
-      width: 40px;
-      height: 40px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.3rem;
+      width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; transition: var(--transition);
     }
-
+    .logo:hover .logo-icon { transform: scale(1.05); }
     .logo-text {
-      font-size: 1.4rem;
-      font-weight: 800;
+      font-size: 1.4rem; font-weight: 800;
       background: linear-gradient(135deg, var(--primary), var(--accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
     }
-
-    /* Stats no Header */
     .header-stats {
-      display: flex;
-      gap: 15px;
-      align-items: center;
-      flex-wrap: wrap;
-      justify-content: center;
-      flex: 1;
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      justify-content: center; flex: 1; min-width: 0;
     }
-
     .header-stat {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 5px 12px;
-      background: var(--bg-glass);
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      min-width: 70px;
+      display: flex; flex-direction: column; align-items: center; padding: 5px 12px;
+      background: var(--bg-glass); border-radius: 8px; border: 1px solid var(--border);
+      min-width: 65px; transition: var(--transition);
     }
-
+    .header-stat:hover { border-color: var(--primary); background: rgba(0, 217, 255, 0.08); }
     .header-stat-value {
-      font-size: 1rem;
-      font-weight: 700;
-      color: var(--primary);
-      word-break: break-word;
-      text-align: center;
+      font-size: 0.95rem; font-weight: 700; color: var(--primary);
+      word-break: break-word; text-align: center; max-width: 100px;
+      overflow: hidden; text-overflow: ellipsis;
     }
-
     .header-stat-label {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-      text-align: center;
+      font-size: 0.6rem; color: var(--text-muted); margin-top: 2px;
+      text-align: center; text-transform: uppercase; letter-spacing: 0.5px;
     }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
-    }
-
-    /* ===== LAYOUT PRINCIPAL ===== */
+    .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    
     .main-wrapper {
-      display: grid;
-      grid-template-columns: 280px 1fr 300px;
-      gap: 12px;
-      height: calc(100vh - 65px);
-      padding: 15px;
-      overflow: hidden;
+      display: grid; grid-template-columns: 280px 1fr 300px; gap: 12px;
+      height: calc(100vh - 65px); padding: 15px; overflow: hidden;
     }
-
-    .sidebar-col,
-    .main-col,
-    .ads-col {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
+    .sidebar-col, .main-col, .ads-col { display: flex; flex-direction: column; min-height: 0; }
     .glass-card {
-      background: var(--bg-card);
-      backdrop-filter: blur(20px);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      padding: 15px;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
+      background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow);
+      padding: 15px; height: 100%; display: flex; flex-direction: column;
+      overflow-y: auto; transition: var(--transition);
     }
-
-    /* ===== COLUNA DE ANÚNCIOS (Direita) ===== */
-    .ads-col {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-      overflow-y: auto;
-      padding-right: 5px;
-    }
-
+    .glass-card:hover { border-color: rgba(0, 217, 255, 0.3); }
+    
+    .ads-col { display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding-right: 5px; }
     .ad-space {
-      background: var(--bg-glass);
-      border: 1px dashed var(--border);
-      border-radius: var(--radius);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-muted);
-      font-size: 0.75rem;
-      text-align: center;
-      flex-shrink: 0;
-      overflow: hidden;
-      position: relative;
+      background: var(--bg-glass); border: 1px dashed var(--border); border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center; color: var(--text-muted);
+      font-size: 0.7rem; text-align: center; flex-shrink: 0; overflow: hidden;
+      position: relative; transition: var(--transition); min-height: 100px;
     }
-
     .ad-space::before {
-      content: "📢 Anúncio";
-      position: absolute;
-      top: 5px;
-      right: 8px;
-      font-size: 0.65rem;
-      opacity: 0.6;
+      content: "📢 Anúncio"; position: absolute; top: 5px; right: 8px;
+      font-size: 0.6rem; opacity: 0.5;
     }
-
-    .ad-space.sidebar-ad {
-      width: 100%;
-      height: 250px;
-      min-height: 250px;
-    }
-
-    .ad-space.rectangle {
-      width: 100%;
-      height: 250px;
-      min-height: 250px;
-    }
-
-    .ad-space.skyscraper {
-      width: 100%;
-      height: 600px;
-      min-height: 600px;
-    }
-
-    .ad-space.ad-loaded::before {
-      content: "";
-    }
-
-    /* ===== CONTROLES ===== */
+    .ad-space:hover { border-style: solid; border-color: var(--secondary); }
+    .ad-space.sidebar-ad { height: 250px; }
+    .ad-space.rectangle { height: 250px; }
+    .ad-space.skyscraper { height: 600px; }
+    .ad-space.ad-loaded::before { content: none; }
+    
     .form-label {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      font-weight: 600;
-      margin-bottom: 5px;
+      font-size: 0.75rem; color: var(--text-muted); font-weight: 600;
+      margin-bottom: 5px; display: flex; align-items: center; gap: 5px;
     }
-
     .form-select, .form-control {
-      background: var(--bg-glass);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      transition: border-color 0.2s;
+      background: var(--bg-glass); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 12px; border-radius: 8px; font-size: 0.85rem;
+      transition: var(--transition); width: 100%;
     }
-
     .form-select:focus, .form-control:focus {
-      background: var(--bg-glass);
-      border-color: var(--primary);
-      color: var(--text);
-      box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.15);
+      background: var(--bg-glass); border-color: var(--primary); color: var(--text);
+      box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.15); outline: none;
     }
-
-    .form-range {
-      height: 4px;
-    }
-
+    .form-range { height: 5px; cursor: pointer; }
     .form-range::-webkit-slider-thumb {
-      width: 14px;
-      height: 14px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border-radius: 50%;
+      width: 16px; height: 16px; background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 50%; border: 2px solid var(--bg-card); cursor: grab; transition: var(--transition);
     }
-
-    /* ===== ÁREA DE TEXTO ===== */
+    .form-range::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.1); }
+    .form-range::-webkit-slider-runnable-track {
+      background: var(--border); border-radius: 3px; height: 5px;
+    }
+    
     .text-display {
-      background: var(--bg-glass);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      padding: 20px;
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      font-size: 1.05rem;
-      line-height: 1.9;
-      color: var(--text);
+      background: var(--bg-glass); border-radius: var(--radius); border: 1px solid var(--border);
+      padding: 20px; flex: 1; min-height: 0; overflow-y: auto; font-size: 1.05rem;
+      line-height: 1.8; color: var(--text); scroll-behavior: smooth;
     }
-
     .word {
-      cursor: pointer;
-      padding: 2px 5px;
-      border-radius: 5px;
-      display: inline;
-      transition: background 0.15s;
-      margin: 0 2px;
+      cursor: pointer; padding: 2px 4px; border-radius: 4px; display: inline;
+      transition: var(--transition); margin: 0 2px; position: relative;
     }
-
-    .word:hover {
-      background: rgba(0, 217, 255, 0.2);
+    .word::after {
+      content: ''; position: absolute; bottom: 2px; left: 0; right: 0;
+      height: 2px; background: transparent; transition: var(--transition); border-radius: 1px;
     }
-
+    .word:hover { background: rgba(0, 217, 255, 0.15); color: var(--primary); }
+    .word:hover::after { background: var(--primary); }
     .word.active {
       background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: white;
-      font-weight: 700;
-      border-radius: 5px;
+      color: white; font-weight: 600; border-radius: 5px;
+      box-shadow: 0 2px 8px rgba(0, 217, 255, 0.3);
     }
-
-    .word.reading {
-      background: rgba(0, 217, 255, 0.15);
-      border-radius: 4px;
+    .word.active::after { display: none; }
+    .word.reading { background: rgba(0, 217, 255, 0.1); border-radius: 4px; }
+    .word.bookmarked { border-bottom: 2px solid var(--warning); }
+    .word.bookmarked::after {
+      content: '🔖'; position: absolute; top: -18px; left: 50%;
+      transform: translateX(-50%); font-size: 0.7rem;
     }
-
-    /* ===== PLAYER ===== */
+    
     .player-bar {
-      background: var(--bg-card);
-      backdrop-filter: blur(20px);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      padding: 12px 15px;
-      margin-top: auto;
-      margin-bottom: 0;
-      flex-shrink: 0;
+      background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-radius: var(--radius); border: 1px solid var(--border); padding: 12px 15px;
+      margin-top: auto; margin-bottom: 0; flex-shrink: 0; transition: var(--transition);
     }
-
     .play-btn-main {
-      width: 55px;
-      height: 55px;
-      border-radius: 50%;
-      border: none;
+      width: 58px; height: 58px; border-radius: 50%; border: none;
       background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: white;
-      font-size: 1.5rem;
-      cursor: pointer;
-      transition: transform 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      color: white; font-size: 1.6rem; cursor: pointer; transition: var(--transition);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3);
     }
-
-    .play-btn-main:hover {
-      transform: scale(1.08);
-    }
-
+    .play-btn-main:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0, 217, 255, 0.5); }
+    .play-btn-main:active { transform: scale(0.98); }
     .control-btn-sm {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      background: var(--bg-glass);
-      color: var(--text);
-      font-size: 1rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--bg-glass); color: var(--text); font-size: 1rem;
+      cursor: pointer; transition: var(--transition);
+      display: flex; align-items: center; justify-content: center;
     }
-
     .control-btn-sm:hover {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #000;
+      background: var(--primary); border-color: var(--primary); color: #000;
+      transform: translateY(-2px);
     }
-
-    /* ===== UPLOAD ZONES ===== */
-    .upload-zone {
-      border: 2px dashed var(--border);
-      border-radius: var(--radius);
-      padding: 20px 10px;
-      text-align: center;
-      transition: border-color 0.2s;
-      cursor: pointer;
-      background: var(--bg-glass);
-      flex-shrink: 0;
+    .control-btn-sm:active { transform: translateY(0); }
+    
+    .upload-zone, .ocr-upload-zone {
+      border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 18px 10px; text-align: center; transition: var(--transition);
+      cursor: pointer; background: var(--bg-glass); flex-shrink: 0;
     }
-
-    .upload-zone:hover {
-      border-color: var(--primary);
+    .upload-zone:hover, .ocr-upload-zone:hover {
+      border-color: var(--primary); background: rgba(0, 217, 255, 0.05);
     }
-
-    .upload-zone.dragover {
-      border-color: var(--primary);
-      background: rgba(0, 217, 255, 0.05);
+    .upload-zone.dragover, .ocr-upload-zone.dragover {
+      border-color: var(--primary); background: rgba(0, 217, 255, 0.1);
+      transform: scale(1.02);
     }
-
-    .ocr-upload-zone {
-      border: 2px dashed var(--secondary);
-      border-radius: var(--radius);
-      padding: 20px 10px;
-      text-align: center;
-      transition: all 0.2s;
-      cursor: pointer;
-      background: var(--bg-glass);
-      margin-top: 10px;
-    }
-
-    .ocr-upload-zone:hover {
-      border-color: var(--accent);
-      background: rgba(123, 44, 191, 0.1);
-    }
-
-    .ocr-upload-zone.dragover {
-      border-color: var(--accent);
-      background: rgba(123, 44, 191, 0.15);
-    }
-
-    /* ===== OCR PROGRESS ===== */
+    .ocr-upload-zone { border-color: var(--secondary); margin-top: 10px; }
+    .ocr-upload-zone:hover { border-color: var(--accent); background: rgba(123, 44, 191, 0.1); }
+    .ocr-upload-zone.dragover { border-color: var(--accent); background: rgba(123, 44, 191, 0.15); }
+    
     .ocr-progress {
-      background: var(--bg-glass);
-      border-radius: var(--radius);
-      padding: 15px;
-      margin-top: 10px;
-      display: none;
+      background: var(--bg-glass); border-radius: var(--radius); padding: 15px;
+      margin-top: 10px; display: none; border-left: 3px solid var(--secondary);
     }
-
-    .ocr-progress.show {
-      display: block;
-    }
-
+    .ocr-progress.show { display: block; animation: slideIn 0.3s ease; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     .progress-bar-custom {
-      height: 8px;
-      background: var(--border);
-      border-radius: 4px;
-      overflow: hidden;
-      margin-top: 10px;
+      height: 8px; background: var(--border); border-radius: 4px;
+      overflow: hidden; margin-top: 10px;
     }
-
     .progress-fill {
-      height: 100%;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border-radius: 4px;
-      transition: width 0.3s;
-      width: 0%;
+      height: 100%; background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+      border-radius: 4px; transition: width 0.3s ease; width: 0%;
+      background-size: 200% 100%; animation: gradient 2s linear infinite;
     }
-
+    @keyframes gradient { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
     .ocr-status {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-top: 8px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;
+      display: flex; align-items: center; gap: 8px;
     }
-
-    .ocr-status i {
-      color: var(--primary);
-    }
-
-    /* ===== TABS ===== */
-    .nav-tabs {
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 15px;
-      flex-shrink: 0;
-    }
-
+    .ocr-status i { color: var(--primary); animation: pulse 1.5s infinite; }
+    
+    .nav-tabs { border-bottom: 1px solid var(--border); margin-bottom: 15px; flex-shrink: 0; }
     .nav-tabs .nav-link {
-      color: var(--text-muted);
-      border: none;
-      padding: 8px 16px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      transition: all 0.2s;
-      background: transparent;
+      color: var(--text-muted); border: none; padding: 10px 18px; font-size: 0.85rem;
+      font-weight: 600; transition: var(--transition); background: transparent;
+      border-radius: 8px 8px 0 0; margin-right: 4px;
     }
-
+    .nav-tabs .nav-link:hover { color: var(--text); background: var(--bg-glass); }
     .nav-tabs .nav-link.active {
-      color: var(--primary);
-      background: var(--bg-glass);
-      border: none;
-      border-bottom: 2px solid var(--primary);
+      color: var(--primary); background: var(--bg-glass);
+      border-bottom: 2px solid var(--primary); font-weight: 700;
     }
-
     .tab-content {
-      background: var(--bg-glass);
-      border-radius: var(--radius);
-      padding: 15px;
-      border: 1px solid var(--border);
-      margin-bottom: 15px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      overflow: hidden;
+      background: var(--bg-glass); border-radius: var(--radius); padding: 15px;
+      border: 1px solid var(--border); margin-bottom: 15px; flex: 1;
+      display: flex; flex-direction: column; min-height: 0; overflow: hidden;
     }
-
-    .tab-pane {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-
+    .tab-pane { height: 100%; display: flex; flex-direction: column; }
     .image-preview {
-      max-width: 100%;
-      max-height: 200px;
-      border-radius: var(--radius);
-      margin: 10px 0;
-      display: none;
-      border: 1px solid var(--border);
-      object-fit: contain;
+      max-width: 100%; max-height: 200px; border-radius: var(--radius);
+      margin: 10px 0; display: none; border: 1px solid var(--border);
+      object-fit: contain; box-shadow: var(--shadow);
     }
-
-    .image-preview.show {
-      display: block;
-    }
-
-    /* ===== TOAST ===== */
+    .image-preview.show { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
     .toast-container {
-      position: fixed;
-      bottom: 100px;
-      right: 20px;
-      z-index: 9999;
+      position: fixed; bottom: 100px; right: 20px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 8px; max-width: 320px;
     }
-
     .toast-custom {
-      background: var(--bg-card);
-      backdrop-filter: blur(20px);
-      border-left: 4px solid var(--primary);
-      color: var(--text);
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border);
-      margin-top: 10px;
-      padding: 10px 15px;
-      font-size: 0.85rem;
+      background: var(--bg-card); backdrop-filter: blur(20px);
+      border-left: 4px solid var(--primary); color: var(--text);
+      border-radius: 10px; box-shadow: var(--shadow); border: 1px solid var(--border);
+      padding: 12px 16px; font-size: 0.85rem; display: flex; align-items: center;
+      gap: 10px; animation: slideInRight 0.3s ease, fadeOut 0.3s ease 3.7s forwards;
+      max-width: 100%;
     }
-
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes fadeOut { to { opacity: 0; transform: translateX(20px); } }
     .toast-custom.bg-success { border-left-color: var(--success); }
     .toast-custom.bg-danger { border-left-color: var(--danger); }
     .toast-custom.bg-warning { border-left-color: var(--warning); }
-
-    /* ===== SCROLLBAR ===== */
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: var(--bg-dark); }
-    ::-webkit-scrollbar-thumb { 
-      background: linear-gradient(var(--primary), var(--secondary)); 
-      border-radius: 4px;
+    .toast-custom i { font-size: 1.1rem; flex-shrink: 0; }
+    
+    .bookmarks-panel {
+      background: var(--bg-glass); border-radius: var(--radius); padding: 12px;
+      margin-top: 10px; border: 1px solid var(--border); max-height: 200px; overflow-y: auto;
     }
+    .bookmark-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px; background: rgba(255,255,255,0.03); border-radius: 6px;
+      margin-bottom: 6px; font-size: 0.8rem; cursor: pointer; transition: var(--transition);
+    }
+    .bookmark-item:hover { background: rgba(0, 217, 255, 0.1); transform: translateX(3px); }
+    .bookmark-item .bookmark-text {
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px;
+    }
+    .bookmark-item .bookmark-time { font-size: 0.7rem; color: var(--text-muted); flex-shrink: 0; }
+    .bookmark-item .bookmark-remove {
+      background: none; border: none; color: var(--danger); cursor: pointer;
+      padding: 2px 6px; border-radius: 4px; opacity: 0.7; transition: var(--transition);
+    }
+    .bookmark-item .bookmark-remove:hover { opacity: 1; background: rgba(255, 71, 87, 0.1); }
+    
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-dark); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: linear-gradient(var(--primary), var(--secondary)); border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
-
-    /* ===== BUTTONS ===== */
+    
     .btn-gradient {
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border: none;
-      color: white;
-      font-weight: 600;
-      font-size: 0.85rem;
-      padding: 8px 16px;
-      transition: opacity 0.2s;
+      background: linear-gradient(135deg, var(--primary), var(--secondary)); border: none;
+      color: white; font-weight: 600; font-size: 0.85rem; padding: 9px 18px;
+      transition: var(--transition); border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 8px;
     }
-
     .btn-gradient:hover {
-      opacity: 0.9;
-      color: white;
+      opacity: 0.95; transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 217, 255, 0.3); color: white;
     }
-
+    .btn-gradient:active { transform: translateY(0); }
     .btn-outline-custom {
-      background: var(--bg-glass);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-weight: 600;
-      font-size: 0.8rem;
-      padding: 6px 12px;
-      transition: all 0.2s;
+      background: var(--bg-glass); border: 1px solid var(--border); color: var(--text);
+      font-weight: 600; font-size: 0.8rem; padding: 7px 14px;
+      transition: var(--transition); border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 6px;
     }
-
     .btn-outline-custom:hover {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #000;
+      background: var(--primary); border-color: var(--primary); color: #000;
+      transform: translateY(-1px);
     }
-
     .btn-ocr {
-      background: linear-gradient(135deg, var(--secondary), var(--accent));
-      border: none;
-      color: white;
-      font-weight: 600;
-      font-size: 0.85rem;
-      padding: 8px 16px;
-      transition: opacity 0.2s;
+      background: linear-gradient(135deg, var(--secondary), var(--accent)); border: none;
+      color: white; font-weight: 600; font-size: 0.85rem; padding: 9px 18px;
+      transition: var(--transition); border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 8px;
     }
-
     .btn-ocr:hover {
-      opacity: 0.9;
-      color: white;
+      opacity: 0.95; transform: translateY(-1px); color: white;
+      box-shadow: 0 4px 12px rgba(123, 44, 191, 0.3);
     }
-
-    .btn-ocr:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
+    .btn-ocr:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-sm-custom { padding: 5px 12px; font-size: 0.75rem; border-radius: 6px; }
     .value-badge {
-      background: var(--bg-glass);
-      padding: 3px 10px;
-      border-radius: 15px;
-      font-size: 0.75rem;
-      color: var(--primary);
-      font-weight: 600;
-      border: 1px solid var(--border);
+      background: var(--bg-glass); padding: 3px 10px; border-radius: 15px;
+      font-size: 0.75rem; color: var(--primary); font-weight: 600;
+      border: 1px solid var(--border); min-width: 45px; text-align: center;
     }
-
     .spinner-ocr {
-      width: 20px;
-      height: 20px;
-      border: 2px solid var(--border);
-      border-top-color: var(--primary);
-      border-radius: 50%;
+      width: 18px; height: 18px; border: 2px solid var(--border);
+      border-top-color: var(--primary); border-radius: 50%;
+      animation: spin 1s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .hidden { display: none !important; }
+    .text-truncate-custom { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+    .divider { height: 1px; background: var(--border); margin: 15px 0; border: none; }
+    .section-title {
+      font-size: 0.9rem; font-weight: 700; color: var(--text); margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-title i { color: var(--primary); }
+    
+    .ocr-debug {
+      background: rgba(0, 0, 0, 0.25); border-radius: 8px; padding: 10px;
+      margin-top: 10px; font-size: 0.7rem; color: var(--text-muted);
+      max-height: 120px; overflow-y: auto; font-family: 'Fira Code', 'Consolas', monospace;
+      white-space: pre-wrap; word-break: break-all; border: 1px solid var(--border);
+    }
+    .ocr-debug strong { color: var(--primary); }
+    
+    @media (max-width: 1200px) { .main-wrapper { grid-template-columns: 250px 1fr 250px; } }
+    @media (max-width: 992px) {
+      body { overflow-y: auto; padding-bottom: 100px; }
+      .header-content { flex-direction: column; gap: 10px; padding: 5px 15px; }
+      .header-stats { width: 100%; justify-content: space-around; }
+      .header-stat { min-width: 55px; padding: 4px 8px; }
+      .header-stat-value { font-size: 0.85rem; }
+      .header-stat-label { font-size: 0.55rem; }
+      .main-wrapper { height: auto; grid-template-columns: 1fr; padding: 10px; }
+      .glass-card, .ads-col { height: auto; max-height: 400px; margin-bottom: 15px; }
+      .text-display { height: 350px; padding: 15px; font-size: 1rem; flex: none; }
+      .player-bar {
+        position: fixed; bottom: 10px; left: 10px; right: 10px;
+        z-index: 1000; padding: 10px; margin-bottom: 0;
+      }
+      .play-btn-main { width: 50px; height: 50px; font-size: 1.3rem; }
+      .control-btn-sm { width: 36px; height: 36px; font-size: 0.9rem; }
+      .toast-container { bottom: 90px; right: 10px; left: 10px; max-width: none; }
+      .ad-space.sidebar-ad, .ad-space.rectangle { height: 100px; min-height: 100px; }
+      .ad-space.skyscraper { height: 250px; min-height: 250px; }
+    }
+    @media (max-width: 576px) {
+      .header-stat { min-width: 50px; padding: 3px 6px; }
+      .header-stat-value { font-size: 0.8rem; }
+      .header-stat-label { font-size: 0.5rem; }
+      .logo-text { font-size: 1.2rem; }
+      .logo-icon { width: 35px; height: 35px; font-size: 1.1rem; }
+    }
+    
+    :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
+    .loading-overlay {
+      position: absolute; inset: 0; background: rgba(10, 10, 15, 0.8);
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius); z-index: 10; backdrop-filter: blur(4px);
+    }
+    .loading-overlay .spinner {
+      width: 40px; height: 40px; border: 3px solid var(--border);
+      border-top-color: var(--primary); border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .offline-badge {
+      position: fixed; top: 10px; right: 10px; background: var(--warning);
+      color: #000; padding: 5px 12px; border-radius: 20px; font-size: 0.75rem;
+      font-weight: 600; z-index: 1001; display: none; animation: pulse 2s infinite;
     }
-
-    /* ===== RESPONSIVO ===== */
-    @media (max-width: 1200px) {
-      .main-wrapper {
-        grid-template-columns: 250px 1fr 250px;
-      }
-    }
-
-    @media (max-width: 992px) {
-      body {
-        overflow-y: auto;
-        padding-bottom: 100px;
-      }
-      
-      .header-content {
-        flex-direction: column;
-        gap: 10px;
-        padding: 5px 15px;
-      }
-      
-      .header-stats {
-        width: 100%;
-        justify-content: space-around;
-      }
-      
-      .header-stat {
-        min-width: 60px;
-        padding: 4px 8px;
-      }
-      
-      .header-stat-value {
-        font-size: 0.9rem;
-      }
-      
-      .header-stat-label {
-        font-size: 0.6rem;
-      }
-      
-      .main-wrapper {
-        height: auto;
-        grid-template-columns: 1fr;
-        padding: 10px;
-      }
-      
-      .glass-card,
-      .ads-col {
-        height: auto;
-        max-height: 400px;
-        margin-bottom: 15px;
-      }
-      
-      .text-display {
-        height: 350px;
-        padding: 15px;
-        font-size: 1rem;
-        flex: none;
-      }
-      
-      .player-bar {
-        position: fixed;
-        bottom: 10px;
-        left: 10px;
-        right: 10px;
-        z-index: 1000;
-        padding: 10px;
-        margin-bottom: 0;
-      }
-      
-      .play-btn-main {
-        width: 50px;
-        height: 50px;
-        font-size: 1.3rem;
-      }
-      
-      .control-btn-sm {
-        width: 36px;
-        height: 36px;
-        font-size: 0.9rem;
-      }
-      
-      .toast-container {
-        bottom: 90px;
-        right: 10px;
-        left: 10px;
-      }
-      
-      .ad-space.sidebar-ad,
-      .ad-space.rectangle {
-        height: 100px;
-        min-height: 100px;
-      }
-      
-      .ad-space.skyscraper {
-        height: 250px;
-        min-height: 250px;
-      }
-    }
-
-    :focus-visible {
-      outline: 2px solid var(--primary);
-      outline-offset: 2px;
-    }
-
-    .hidden { display: none !important; }
-
-    .ocr-debug {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 10px;
-      margin-top: 10px;
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      max-height: 150px;
-      overflow-y: auto;
-      font-family: monospace;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
+    .offline-badge.show { display: flex; align-items: center; gap: 6px; }
   </style>
 </head>
 <body>
   <div class="bg-animation"></div>
-  <div class="toast-container" id="toastContainer"></div>
+  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+  <div class="offline-badge" id="offlineBadge"><i class="bi bi-wifi-off"></i><span>Modo Offline</span></div>
 
-  <!-- ===== HEADER COM STATS ===== -->
-  <header class="app-header">
+  <!-- ===== HEADER ===== -->
+  <header class="app-header" role="banner">
     <div class="header-content">
-      <!-- Logo -->
-      <div class="logo">
-        <div class="logo-icon"><i class="bi bi-headphones"></i></div>
-        <div class="logo-text">VoxDoc <span style="font-size: 0.7em; color: var(--secondary);">+OCR</span></div>
+      <div class="logo" id="logoBtn" role="button" tabindex="0" aria-label="VoxDoc - Página inicial">
+        <div class="logo-icon" aria-hidden="true"><i class="bi bi-headphones"></i></div>
+        <div class="logo-text">VoxDoc<span style="font-size: 0.7em; color: var(--secondary);">+</span></div>
       </div>
-
-      <!-- Stats no Header -->
-      <div class="header-stats">
-        <div class="header-stat">
-          <span class="header-stat-value" id="fileName">-</span>
-          <span class="header-stat-label">📄 Arquivo</span>
-        </div>
-        <div class="header-stat">
-          <span class="header-stat-value" id="progress">0%</span>
-          <span class="header-stat-label">📍 Progresso</span>
-        </div>
-        <div class="header-stat">
-          <span class="header-stat-value" id="time">00:00</span>
-          <span class="header-stat-label">⏱️ Tempo</span>
-        </div>
-        <div class="header-stat">
-          <span class="header-stat-value" id="wordCount">0</span>
-          <span class="header-stat-label">📝 Palavras</span>
-        </div>
-        <div class="header-stat">
-          <span class="header-stat-value" id="sourceType">-</span>
-          <span class="header-stat-label">🔍 Origem</span>
-        </div>
+      <div class="header-stats" role="status" aria-label="Estatísticas da leitura">
+        <div class="header-stat"><span class="header-stat-value" id="fileName">-</span><span class="header-stat-label">📄 Arquivo</span></div>
+        <div class="header-stat"><span class="header-stat-value" id="progress">0%</span><span class="header-stat-label">📍 Progresso</span></div>
+        <div class="header-stat"><span class="header-stat-value" id="time">00:00</span><span class="header-stat-label">⏱️ Tempo</span></div>
+        <div class="header-stat"><span class="header-stat-value" id="wordCount">0</span><span class="header-stat-label">📝 Palavras</span></div>
+        <div class="header-stat"><span class="header-stat-value" id="sourceType">-</span><span class="header-stat-label">🔍 Origem</span></div>
       </div>
-
-      <!-- Ações -->
       <div class="header-actions">
-        <button class="btn btn-outline-custom btn-sm" id="themeBtn" title="Alternar Tema">
-          <i class="bi bi-moon-stars"></i>
+        <button class="btn btn-outline-custom btn-sm" id="themeBtn" title="Alternar tema (T)" aria-label="Alternar tema">
+          <i class="bi bi-moon-stars" aria-hidden="true"></i>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- ===== MAIN WRAPPER ===== -->
-  <main class="container-fluid p-0">
+  <!-- ===== MAIN ===== -->
+  <main class="container-fluid p-0" role="main">
     <div class="main-wrapper">
       
-      <!-- Sidebar Controls (Esquerda) -->
-      <div class="sidebar-col">
+      <!-- Sidebar -->
+      <aside class="sidebar-col" role="complementary" aria-label="Controles">
         <div class="glass-card">
-          <h6 class="mb-3">
-            <i class="bi bi-sliders text-primary"></i> Voz
-          </h6>
-
+          <h6 class="section-title"><i class="bi bi-sliders"></i> Voz & Idioma</h6>
           <div class="mb-3">
-            <label class="form-label">🌐 Idioma OCR</label>
+            <label class="form-label" for="ocrLangSelect">🌐 Idioma OCR</label>
             <select class="form-select" id="ocrLangSelect">
               <option value="por">🇧🇷 Português</option>
               <option value="eng">🇺🇸 English</option>
@@ -821,810 +497,667 @@
               <option value="ita">🇮🇹 Italiano</option>
             </select>
           </div>
-
           <div class="mb-3">
-            <label class="form-label">🔊 Voz</label>
+            <label class="form-label" for="voiceSelect">🔊 Voz TTS</label>
             <select class="form-select" id="voiceSelect"></select>
           </div>
-
           <div class="mb-3">
-            <label class="form-label d-flex justify-content-between">
-              <span>⚡ Velocidade</span>
-              <span class="value-badge" id="rateValue">1.0x</span>
-            </label>
+            <label class="form-label d-flex justify-content-between"><span>⚡ Velocidade</span><span class="value-badge" id="rateValue">1.0x</span></label>
             <input type="range" class="form-range" id="rateRange" min="0.5" max="2" step="0.05" value="1">
           </div>
-
           <div class="mb-3">
-            <label class="form-label d-flex justify-content-between">
-              <span>🎵 Tom</span>
-              <span class="value-badge" id="pitchValue">1.0</span>
-            </label>
+            <label class="form-label d-flex justify-content-between"><span>🎵 Tom</span><span class="value-badge" id="pitchValue">1.0</span></label>
             <input type="range" class="form-range" id="pitchRange" min="0.5" max="2" step="0.05" value="1">
           </div>
-
           <div class="mb-3">
-            <label class="form-label d-flex justify-content-between">
-              <span>📢 Volume</span>
-              <span class="value-badge" id="volumeValue">100%</span>
-            </label>
+            <label class="form-label d-flex justify-content-between"><span>📢 Volume</span><span class="value-badge" id="volumeValue">100%</span></label>
             <input type="range" class="form-range" id="volumeRange" min="0" max="1" step="0.05" value="1">
           </div>
-
-          <hr style="border-color: var(--border); margin: 15px 0;">
-
-        
-
-          <h6 class="mb-3">
-            <i class="bi bi-file-earmark text-primary"></i> Arquivos
-          </h6>
-
-          <button class="btn btn-gradient w-100" id="fileBtn">
-            <i class="bi bi-folder-open"></i> Documento
-          </button>
+          <hr class="divider">
+          <h6 class="section-title"><i class="bi bi-file-earmark"></i> Documentos</h6>
+          <button class="btn btn-gradient w-100 mb-2" id="fileBtn"><i class="bi bi-folder-open"></i> Carregar Documento</button>
           <input type="file" id="fileInput" hidden accept=".txt,.md,.html,.pdf,.docx">
-
-          <div class="upload-zone mt-2" id="dropZone">
+          <div class="upload-zone" id="dropZone" role="button" tabindex="0">
             <i class="bi bi-cloud-arrow-up" style="font-size: 1.5rem; color: var(--primary);"></i>
-            <div class="fw-semibold" style="font-size: 0.8rem;">Arraste documento</div>
+            <div class="fw-semibold" style="font-size: 0.8rem; margin-top: 5px;">📁 Arraste ou clique</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 3px;">TXT • MD • HTML • PDF • DOCX</div>
           </div>
-
-          <hr style="border-color: var(--border); margin: 15px 0;">
-
-          <h6 class="mb-3">
-            <i class="bi bi-image text-secondary"></i> OCR Imagem
-          </h6>
-
-          <button class="btn btn-ocr w-100" id="ocrBtn">
-            <i class="bi bi-camera"></i> Extrair Texto
-          </button>
+          <hr class="divider">
+          <h6 class="section-title"><i class="bi bi-image"></i> OCR Imagem</h6>
+          <button class="btn btn-ocr w-100 mb-2" id="ocrBtn"><i class="bi bi-camera"></i> Extrair Texto</button>
           <input type="file" id="ocrInput" hidden accept=".png,.jpg,.jpeg,.webp,.bmp,.gif">
-
-          <div class="ocr-upload-zone mt-2" id="ocrDropZone">
+          <div class="ocr-upload-zone" id="ocrDropZone" role="button" tabindex="0">
             <i class="bi bi-image" style="font-size: 1.5rem; color: var(--secondary);"></i>
-            <div class="fw-semibold" style="font-size: 0.8rem;">Arraste imagem</div>
+            <div class="fw-semibold" style="font-size: 0.8rem; margin-top: 5px;">🖼️ Arraste ou clique</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 3px;">PNG • JPG • WEBP • BMP</div>
           </div>
-
-          <div class="ocr-progress" id="ocrProgress">
+          <div class="ocr-progress" id="ocrProgress" role="status" aria-live="polite" aria-busy="false">
             <div class="d-flex justify-content-between align-items-center">
-              <span style="font-size: 0.8rem; color: var(--text-muted);">Processando...</span>
+              <span style="font-size: 0.8rem; color: var(--text-muted);">Processando OCR...</span>
               <div class="spinner-ocr"></div>
             </div>
-            <div class="progress-bar-custom">
-              <div class="progress-fill" id="ocrProgressFill"></div>
-            </div>
-            <div class="ocr-status" id="ocrStatus">
-              <i class="bi bi-hourglass-split"></i>
-              <span id="ocrStatusText">Iniciando OCR...</span>
-            </div>
+            <div class="progress-bar-custom" role="progressbar"><div class="progress-fill" id="ocrProgressFill"></div></div>
+            <div class="ocr-status"><i class="bi bi-hourglass-split"></i><span id="ocrStatusText">Inicializando...</span></div>
           </div>
-
-          <div class="ocr-debug" id="ocrDebug" style="display: none;">
-            <strong>Debug:</strong>
-            <span id="ocrDebugText"></span>
+          <div class="bookmarks-panel hidden" id="bookmarksPanel">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <strong style="font-size: 0.8rem;">🔖 Marcadores</strong>
+              <button class="btn btn-sm-custom btn-outline-custom" id="clearBookmarksBtn">Limpar</button>
+            </div>
+            <div id="bookmarksList"></div>
+          </div>
+          <!-- Botão Limpar Histórico na sidebar -->
+          <div class="mt-3">
+            <button class="btn btn-outline-custom btn-sm w-100" id="clearHistoryBtn">
+              <i class="bi bi-trash"></i> Limpar Histórico
+            </button>
           </div>
         </div>
-      </div>
+      </aside>
 
-      <!-- Main Content Area (Centro) -->
+      <!-- Main Content -->
       <div class="main-col">
-        <!-- ANÚNCIO LEADERBOARD -->
-        <div class="ad-space rectangle" id="adLeaderboard" style="height: 90px; min-height: 90px;">
-          <!-- Substitua pelo código do seu anúncio -->
-        </div>
-
-        <ul class="nav nav-tabs" id="contentTabs">
-          <li class="nav-item">
-            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#fileTab">
-              <i class="bi bi-file-text"></i> Arquivo
-            </button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#pasteTab">
-              <i class="bi bi-clipboard"></i> Colar
-            </button>
-          </li>
-          <li class="nav-item">
-            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#ocrTab">
-              <i class="bi bi-image"></i> Imagem (OCR)
-            </button>
-          </li>
+        <ul class="nav nav-tabs" id="contentTabs" role="tablist">
+          <li class="nav-item"><button class="nav-link active" id="fileTabBtn" data-bs-toggle="tab" data-bs-target="#fileTab"><i class="bi bi-file-text"></i> Arquivo</button></li>
+          <li class="nav-item"><button class="nav-link" id="pasteTabBtn" data-bs-toggle="tab" data-bs-target="#pasteTab"><i class="bi bi-clipboard"></i> Colar</button></li>
+          <li class="nav-item"><button class="nav-link" id="ocrTabBtn" data-bs-toggle="tab" data-bs-target="#ocrTab"><i class="bi bi-image"></i> Imagem (OCR)</button></li>
         </ul>
-
-        <div class="tab-content">
-          <!-- File Tab -->
-          <div class="tab-pane fade show active" id="fileTab">
+        <div class="tab-content" id="contentTabContent">
+          <div class="tab-pane fade show active" id="fileTab" role="tabpanel">
             <div id="textDisplay" class="text-display">
               <div class="text-center py-5">
                 <i class="bi bi-file-earmark" style="font-size: 3rem; color: var(--text-muted); opacity: 0.5;"></i>
-                <p class="mt-3 text-muted">Carregue um arquivo, imagem ou cole texto</p>
+                <p class="mt-3 text-muted">Carregue um arquivo, imagem ou cole texto para começar</p>
+                <p class="text-muted" style="font-size: 0.85rem;">💡 Dica: Use <kbd>Ctrl+O</kbd> para abrir arquivo ou <kbd>Ctrl+I</kbd> para OCR</p>
               </div>
             </div>
           </div>
-
-          <!-- Paste Tab -->
-          <div class="tab-pane fade" id="pasteTab">
-            <textarea class="form-control mb-3" id="pasteText" rows="8" placeholder="Cole seu texto aqui..."></textarea>
-            <button class="btn btn-gradient w-100" id="pasteBtn">
-              <i class="bi bi-play-fill"></i> Ler Texto
-            </button>
+          <div class="tab-pane fade" id="pasteTab" role="tabpanel">
+            <textarea class="form-control mb-3" id="pasteText" rows="8" placeholder="Cole seu texto aqui... Ctrl+Enter para ler"></textarea>
+            <div class="d-flex gap-2">
+              <button class="btn btn-gradient flex-grow-1" id="pasteBtn"><i class="bi bi-play-fill"></i> Ler Texto</button>
+              <button class="btn btn-outline-custom" id="clearPasteBtn"><i class="bi bi-trash"></i></button>
+            </div>
           </div>
-
-          <!-- OCR Tab -->
-          <div class="tab-pane fade" id="ocrTab">
+          <div class="tab-pane fade" id="ocrTab" role="tabpanel">
             <div id="ocrTextDisplay" class="text-display">
               <div class="text-center py-5">
                 <i class="bi bi-image" style="font-size: 3rem; color: var(--text-muted); opacity: 0.5;"></i>
-                <p class="mt-3 text-muted">Carregue uma imagem para extrair texto</p>
-                <p class="text-muted" style="font-size: 0.85rem;">Formatos: PNG, JPG, JPEG, WEBP, BMP, GIF</p>
+                <p class="mt-3 text-muted">Carregue uma imagem para extrair texto com OCR</p>
+                <p class="text-muted" style="font-size: 0.85rem;">📋 Formatos: PNG, JPG, JPEG, WEBP, BMP, GIF</p>
               </div>
             </div>
-            <button class="btn btn-ocr w-100 mt-3" id="ocrReadBtn" disabled>
-              <i class="bi bi-play-fill"></i> Ler Texto da Imagem
-            </button>
+            <button class="btn btn-ocr w-100 mt-3" id="ocrReadBtn" disabled><i class="bi bi-play-fill"></i> Ler Texto da Imagem</button>
           </div>
         </div>
-
-        <!-- Player Controls -->
-        <div class="player-bar">
+        <div class="player-bar" role="region" aria-label="Controles de reprodução">
           <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
-            <button class="control-btn-sm" id="backBtn" title="Voltar">
-              <i class="bi bi-skip-start-fill"></i>
-            </button>
-            <button class="control-btn-sm" id="slowerBtn" title="Diminuir">
-              <i class="bi bi-dash"></i>
-            </button>
-            <button class="play-btn-main" id="playBtn">
-              <i class="bi bi-play-fill"></i>
-            </button>
-            <button class="control-btn-sm" id="fasterBtn" title="Aumentar">
-              <i class="bi bi-plus"></i>
-            </button>
-            <button class="control-btn-sm" id="forwardBtn" title="Avançar">
-              <i class="bi bi-skip-end-fill"></i>
-            </button>
-            <button class="control-btn-sm" id="stopBtn" title="Parar">
-              <i class="bi bi-stop-fill"></i>
-            </button>
+            <button class="control-btn-sm" id="backBtn" title="Voltar"><i class="bi bi-skip-start-fill"></i></button>
+            <button class="control-btn-sm" id="slowerBtn" title="Diminuir"><i class="bi bi-dash"></i></button>
+            <button class="play-btn-main" id="playBtn"><i class="bi bi-play-fill" id="playIcon"></i></button>
+            <button class="control-btn-sm" id="fasterBtn" title="Aumentar"><i class="bi bi-plus"></i></button>
+            <button class="control-btn-sm" id="forwardBtn" title="Avançar"><i class="bi bi-skip-end-fill"></i></button>
+            <button class="control-btn-sm" id="stopBtn" title="Parar"><i class="bi bi-stop-fill"></i></button>
           </div>
         </div>
       </div>
 
-      <!-- ===== COLUNA DE ANÚNCIOS (Direita) ===== -->
-      <div class="ads-col">
-        <!-- Anúncio 1: Rectangle (300x250) -->
-        <div class="ad-space rectangle" id="adRight1">
-          <!-- Substitua pelo código do seu anúncio -->
+      <!-- Ads Column -->
+      <aside class="ads-col" role="complementary" aria-label="Anúncios">
+        <div class="ad-space rectangle ad-loaded" id="adRight1">
+          <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-4152817214792052" data-ad-slot="5391406597" data-ad-format="auto" data-full-width-responsive="true"></ins>
         </div>
-
-        <!-- Anúncio 2: Skyscraper (300x600) -->
-        <div class="ad-space skyscraper" id="adRight2">
-          <!-- Substitua pelo código do seu anúncio -->
+        <div class="ad-space skyscraper ad-loaded" id="adRight2">
+          <ins class="adsbygoogle" style="display:block; min-height:600px;" data-ad-client="ca-pub-4152817214792052" data-ad-slot="SEU_SLOT_SKYSCRAPER_AQUI" data-ad-format="vertical" data-full-width-responsive="false"></ins>
         </div>
-
-        <!-- Anúncio 3: Extra -->
-        <div class="ad-space rectangle" id="adRight3">
-          <!-- Substitua pelo código do seu anúncio -->
+        <div class="ad-space rectangle ad-loaded" id="adRight3">
+          <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-4152817214792052" data-ad-slot="SEU_SLOT_RECTANGLE_AQUI" data-ad-format="auto" data-full-width-responsive="true"></ins>
         </div>
-      </div>
-      
+      </aside>
     </div>
   </main>
 
   <script src="./JS/bootstrap.bundle.min.js"></script>
-
+  
   <script>
+    // ===== UTILITÁRIOS =====
     const $ = id => document.getElementById(id);
-    const synth = window.speechSynthesis;
+    const $$ = (sel, ctx = document) => ctx.querySelectorAll(sel);
+    const debounce = (fn, delay) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), delay); }; };
+    const formatTime = ms => { const s = Math.floor(ms/1000); return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`; };
     
-    let voices = [];
-    let words = [];
-    let currentWordIndex = 0;
-    let playing = false;
-    let paused = false;
-    let fileName = '';
-    let startTime = 0;
-    let timer = null;
-    let phrases = [];
-    let phraseMap = [];
-    let currentPhrase = 0;
-    let phraseStartTime = 0;
-    let highlightAnimation = null;
-    let currentSpeed = 1.0;
-    let currentSource = 'none';
-    let ocrText = '';
-    let ocrProcessing = false;
-
-    const showToast = (message, type = 'info') => {
-      const toast = document.createElement('div');
-      toast.className = `toast toast-custom bg-${type === 'ok' ? 'success' : type === 'err' ? 'danger' : type === 'warning' ? 'warning' : 'primary'} show`;
-      toast.innerHTML = `<i class="bi bi-${type === 'ok' ? 'check-circle' : type === 'err' ? 'x-circle' : 'info-circle'}"></i> ${message}`;
-      $('toastContainer').appendChild(toast);
-      setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
+    const showToast = (msg, type='info', dur=4000) => {
+      const t = document.createElement('div');
+      t.className = `toast toast-custom bg-${type==='ok'?'success':type==='err'?'danger':type==='warning'?'warning':'primary'} show`;
+      t.role = 'alert';
+      const icons = {ok:'check-circle-fill',err:'x-circle-fill',warning:'exclamation-triangle-fill',info:'info-circle-fill'};
+      t.innerHTML = `<i class="bi bi-${icons[type]||icons.info}"></i><span>${msg}</span>`;
+      $('toastContainer').appendChild(t);
+      setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, dur);
     };
 
-    const formatTime = ms => {
-      const total = Math.floor(ms / 1000);
-      const m = Math.floor(total / 60);
-      const s = total % 60;
-      return `${m}:${s.toString().padStart(2, '0')}`;
+    // ===== SERVIÇO: ADS (Definido ANTES de ser usado) =====
+    const AdService = {
+      client: window.VOXDOC_ADS?.client || 'ca-pub-4152817214792052',
+      loaded: false,
+      async loadScript() {
+        if (this.loaded) return Promise.resolve();
+        return new Promise((res, rej) => {
+          if (typeof adsbygoogle !== 'undefined') { this.loaded = true; res(); return; }
+          const s = document.createElement('script');
+          s.async = true; s.crossOrigin = 'anonymous';
+          s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${this.client}`;
+          s.onload = () => { this.loaded = true; console.log('✅ AdSense carregado'); res(); };
+          s.onerror = e => { console.warn('⚠️ Falha AdSense:', e); rej(e); };
+          document.head.appendChild(s);
+        });
+      },
+      pushSlot(id) {
+        const el = $(id); if (!el) return;
+        try {
+          if (typeof adsbygoogle === 'undefined') return;
+          (adsbygoogle = window.adsbygoogle || []).push({});
+          console.log(`[Ads] Push: #${id}`);
+          el.classList.add('ad-loaded');
+        } catch(e) { console.warn(`[Ads] Erro #${id}:`, e); }
+      },
+      async loadSidebarAds() {
+        await this.loadScript();
+        setTimeout(() => ['adRight1','adRight2','adRight3'].forEach(id => this.pushSlot(id)), 300);
+      },
+      async refresh() {
+        if (!this.loaded) return;
+        for (const id of ['adRight1','adRight2','adRight3']) {
+          const el = $(id); if (el && el.offsetParent !== null) this.pushSlot(id);
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
     };
 
+    // ===== SERVIÇO: HISTÓRICO (IndexedDB - CORRIGIDO) =====
+    const HistoryService = {
+      DB_NAME: 'voxdoc_history', STORE_NAME: 'readings', VERSION: 1,
+      async _openDB() {
+        return new Promise((res, rej) => {
+          const req = indexedDB.open(this.DB_NAME, this.VERSION);
+          req.onupgradeneeded = e => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(this.STORE_NAME)) {
+              const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'id', autoIncrement: true });
+              store.createIndex('timestamp', 'timestamp', {unique:false});
+              store.createIndex('fileName', 'fileName', {unique:false});
+            }
+          };
+          req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
+        });
+      },
+      async save(reading) {
+        try {
+          const db = await this._openDB();
+          return new Promise((res, rej) => {
+            const tx = db.transaction(this.STORE_NAME, 'readwrite');
+            const store = tx.objectStore(this.STORE_NAME);
+            // ✅ NÃO incluir 'id' - autoIncrement gera automaticamente
+            const record = {
+              fileName: reading.fileName, source: reading.source,
+              wordCount: reading.wordCount, phraseCount: reading.phraseCount,
+              lastPosition: reading.lastPosition || 0, timestamp: Date.now()
+            };
+            const req = store.add(record);
+            req.onsuccess = () => { console.log('[History] Salvo ID:', req.result); res(req.result); };
+            req.onerror = () => rej(req.error);
+          });
+        } catch(e) {
+          console.warn('[History] Fallback localStorage:', e);
+          const h = JSON.parse(localStorage.getItem('voxdoc_history_fallback')||'[]');
+          h.unshift({...reading, id: Date.now(), timestamp: Date.now()});
+          localStorage.setItem('voxdoc_history_fallback', JSON.stringify(h.slice(0,100)));
+          return Date.now();
+        }
+      },
+      async getAll(limit=50) {
+        try {
+          const db = await this._openDB();
+          return new Promise((res, rej) => {
+            const tx = db.transaction(this.STORE_NAME, 'readonly');
+            const store = tx.objectStore(this.STORE_NAME);
+            const idx = store.index('timestamp'), req = idx.openCursor(null, 'prev');
+            const r = [];
+            req.onsuccess = e => {
+              const c = e.target.result;
+              if (c && r.length < limit) { r.push(c.value); c.continue(); } else res(r);
+            };
+            req.onerror = () => rej(req.error);
+          });
+        } catch(e) {
+          return JSON.parse(localStorage.getItem('voxdoc_history_fallback')||'[]').slice(0,limit);
+        }
+      },
+      async clear() {
+        try { const db = await this._openDB(); return new Promise((res,rej) => {
+          const tx = db.transaction(this.STORE_NAME,'readwrite');
+          const req = tx.objectStore(this.STORE_NAME).clear();
+          req.onsuccess = () => res(); req.onerror = () => rej(req.error);
+        });} catch(e) { localStorage.removeItem('voxdoc_history_fallback'); }
+      },
+      async reset() {
+        return new Promise((res,rej) => {
+          const req = indexedDB.deleteDatabase(this.DB_NAME);
+          req.onsuccess = () => { console.log('[History] Resetado'); res(); };
+          req.onerror = () => rej(req.error);
+        });
+      }
+    };
+
+    const HistoryDebug = {
+      async check() {
+        console.group('🔍 IndexedDB');
+        try {
+          const db = await HistoryService._openDB();
+          console.log('✅ Banco:', db.name, 'Stores:', Array.from(db.objectStoreNames));
+          const tx = db.transaction('readings','readonly'), store = tx.objectStore('readings');
+          console.log('🔑 KeyPath:', store.keyPath, '🔢 AutoInc:', store.autoIncrement);
+          const cnt = store.count(); cnt.onsuccess = () => console.log('📊 Registros:', cnt.result);
+          db.close();
+        } catch(e) { console.error('❌ Erro:', e.message); }
+        console.groupEnd();
+      },
+      async clear() {
+        if (confirm('Limpar histórico de leituras?')) {
+          await HistoryService.reset(); await HistoryService._openDB();
+          console.log('✅ Histórico limpo'); showToast('Histórico limpo', 'ok');
+        }
+      }
+    };
+
+    // ===== SERVIÇO: MARCADORES =====
+    const BookmarkService = {
+      KEY: 'voxdoc_bookmarks',
+      getAll() { try { return JSON.parse(localStorage.getItem(this.KEY)||'[]'); } catch { return []; } },
+      add({wordIndex, text, fileName, source}) {
+        const b = this.getAll();
+        const bm = { id: `${fileName}_${wordIndex}_${Date.now()}`, wordIndex,
+          text: text?.substring(0,50)||'', fileName, source, createdAt: Date.now() };
+        if (!b.some(x => x.fileName===fileName && Math.abs(x.wordIndex-wordIndex)<5)) {
+          b.unshift(bm); localStorage.setItem(this.KEY, JSON.stringify(b.slice(0,50))); return bm;
+        } return null;
+      },
+      remove(id) { localStorage.setItem(this.KEY, JSON.stringify(this.getAll().filter(b=>b.id!==id))); },
+      clear() { localStorage.removeItem(this.KEY); },
+      getByFile(fn) { return this.getAll().filter(b=>b.fileName===fn); }
+    };
+
+    // ===== ESTADO GLOBAL =====
+    const AppState = {
+      voices:[], words:[], phrases:[], phraseMap:[], currentWordIndex:0, currentPhrase:0,
+      playing:false, paused:false, fileName:'', sourceType:'none', startTime:0, timer:null,
+      highlightAnimation:null, currentSpeed:1, ocrText:'', ocrProcessing:false, ocrLock:false,
+      ocrController:null, bookmarks:[],
+      settings: {
+        theme: localStorage.getItem('voxdoc_theme')||'dark',
+        voice: localStorage.getItem('voxdoc_voice')||'',
+        ocrLang: localStorage.getItem('voxdoc_ocr_lang')||'por',
+        rate: parseFloat(localStorage.getItem('voxdoc_rate')||'1'),
+        pitch: parseFloat(localStorage.getItem('voxdoc_pitch')||'1'),
+        volume: parseFloat(localStorage.getItem('voxdoc_volume')||'1')
+      }
+    };
+
+    // ===== SERVIÇO: TTS =====
+    const TtsService = {
+      synth: window.speechSynthesis,
+      loadVoices() {
+        return new Promise(res => {
+          const load = () => { AppState.voices = this.synth.getVoices(); res(AppState.voices); };
+          if (this.synth.getVoices().length > 0) load(); else this.synth.onvoiceschanged = load;
+        });
+      },
+      getVoice(lang) {
+        if (!AppState.voices.length) return null;
+        const idx = parseInt(AppState.settings.voice);
+        if (!isNaN(idx) && AppState.voices[idx]) return AppState.voices[idx];
+        const prefix = lang?.split('-')[0];
+        const byLang = AppState.voices.find(v => v.lang.startsWith(prefix)||v.lang===lang);
+        if (byLang) return byLang;
+        const def = AppState.voices.find(v=>v.default); return def || AppState.voices[0];
+      },
+      speak(text, opts={}, onEnd, onError) {
+        if (!text?.trim()) return null;
+        const u = new SpeechSynthesisUtterance(text);
+        u.voice = this.getVoice(opts.lang); u.lang = opts.lang||'pt-BR';
+        u.rate = opts.rate??AppState.settings.rate; u.pitch = opts.pitch??AppState.settings.pitch;
+        u.volume = opts.volume??AppState.settings.volume;
+        u.onend = e => onEnd?.(e); u.onerror = e => { console.error('[TTS]',e); onError?.(e); showToast('Erro na voz','err'); };
+        this.synth.speak(u); return u;
+      },
+      pause() { if (this.synth.speaking && !this.synth.paused) { this.synth.pause(); return true; } return false; },
+      resume() { if (this.synth.paused) { this.synth.resume(); return true; } return false; },
+      cancel() { this.synth.cancel(); },
+      isSpeaking() { return this.synth.speaking; },
+      isPaused() { return this.synth.paused; }
+    };
+
+    // ===== SERVIÇO: OCR =====
+    const OcrService = {
+      async isTesseractAvailable() {
+        if (typeof Tesseract === 'undefined') {
+          try { await import('./JS/tesseract.min.js'); return typeof Tesseract !== 'undefined'; }
+          catch(e) { console.error('[OCR] Falha:',e); return false; }
+        } return true;
+      },
+      async preprocessImage(file) {
+        return new Promise(res => {
+          const img = new Image(), cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+          img.onload = () => {
+            const MAX = 2000; let {width,height} = img;
+            if (width>MAX||height>MAX) { const r = Math.min(MAX/width,MAX/height); width*=r; height*=r; }
+            cv.width=width; cv.height=height; ctx.drawImage(img,0,0,width,height);
+            cv.toBlob(b => res(b||file), 'image/png', 0.9);
+          };
+          img.onerror = () => res(file); img.src = URL.createObjectURL(file);
+        });
+      },
+      async recognize(file, lang, cfg={}) {
+        if (!(await this.isTesseractAvailable())) throw new Error('OCR não disponível');
+        const {logger,workerPath,langPath,corePath,isOnline} = {...window.VOXDOC_CONFIG.ocr, ...cfg};
+        const proc = await this.preprocessImage(file);
+        const tessCfg = { logger: logger||(()=>{}), ...(isOnline?{}:{workerPath,langPath,corePath}) };
+        const res = await Tesseract.recognize(proc, lang, tessCfg);
+        let txt = res?.data?.text || res?.text || '';
+        return txt.replace(/[^\w\sàáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ.,!?;:()\-'"]/g,' ').replace(/\s+/g,' ').trim();
+      }
+    };
+
+    // ===== PROCESSAMENTO =====
     function splitIntoPhrases(text) {
-      text = text.replace(/\b(Dr|Dra|Sr|Sra|Exmo|Ilmo|Prof|Eng|etc)\.\s*/gi, '$1<ABBR>');
-      text = text.replace(/\d+\.\d+/g, m => m.replace(/\./g, '<DOT>'));
-      text = text.replace(/https?:\/\/[^\s]+/g, m => m.replace(/\./g, '<URLDOT>'));
-      
-      let parts = text.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÚÁ-úá-ú])|(?<=[.!?])\s*$/);
-      parts = parts.map(s => s.replace(/<ABBR>/g, '. ').replace(/<DOT>/g, '.').replace(/<URLDOT>/g, '.'));
-      
-      let phrases = [];
-      parts.forEach(part => {
-        const subParts = part.split(/(?<=[,;:])\s+/);
-        subParts.forEach(sp => {
-          const trimmed = sp.trim();
-          if (trimmed.length > 0) phrases.push(trimmed);
-        });
-      });
-      
-      return phrases.filter(p => p.length > 0);
+      if (!text?.trim()) return [];
+      let p = text.replace(/\b(Dr|Dra|Sr|Sra|Exmo|Ilmo|Prof|Eng|etc)\.\s*/gi,'$1<ABBR>')
+        .replace(/\d+,\d+|\d+\.\d+/g,m=>m.replace(/[.,]/g,'<DOT>'))
+        .replace(/https?:\/\/[^\s]+/gi,m=>m.replace(/\./g,'<URL>'))
+        .replace(/[\w.-]+@[\w.-]+\.\w+/g,m=>m.replace(/\./g,'<EML>'));
+      let parts = p.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÚÁ-úá-ú])|(?<=[.!?])\s*$/);
+      parts = parts.map(s=>s.replace(/<ABBR>/g,'. ').replace(/<DOT>/g,'.').replace(/<URL>/g,'.').replace(/<EML>/g,'.'));
+      let phrases=[]; parts.forEach(pt => pt.split(/(?<=[,;:])\s+/).forEach(sp => { const t=sp.trim(); if(t.length>2) phrases.push(t); }));
+      return phrases.filter(p=>p.length>0);
     }
-
     function mapWordsToPhrases(words, phrases) {
-      const mapping = [];
-      let wordIdx = 0;
-      phrases.forEach((phrase, pIdx) => {
-        const phraseWords = phrase.split(/\s+/).filter(w => w);
-        const startIdx = wordIdx;
-        wordIdx += phraseWords.length;
-        mapping.push({
-          phraseIdx: pIdx,
-          text: phrase,
-          wordStart: startIdx,
-          wordEnd: wordIdx - 1,
-          words: phraseWords
-        });
-      });
-      return mapping;
+      const m=[]; let i=0;
+      phrases.forEach((ph,pIdx) => { const pw=ph.split(/\s+/).filter(w=>w), s=i; i+=pw.length;
+        m.push({phraseIdx:pIdx,text:ph,wordStart:s,wordEnd:Math.max(s,i-1),words:pw}); });
+      return m;
     }
 
-    const loadVoices = () => {
-      voices = synth.getVoices();
-      const sel = $('voiceSelect');
-      sel.innerHTML = '';
-      
-      const pref = ['pt-BR', 'pt-PT', 'en-US', 'es-ES', 'fr-FR'];
-      const sorted = [...voices].sort((a, b) => {
-        const ai = pref.findIndex(p => a.lang.startsWith(p.split('-')[0]));
-        const bi = pref.findIndex(p => b.lang.startsWith(p.split('-')[0]));
-        const aNat = a.name.toLowerCase().includes('natural') || a.name.toLowerCase().includes('premium') ? -1 : 0;
-        const bNat = b.name.toLowerCase().includes('natural') || b.name.toLowerCase().includes('premium') ? -1 : 0;
-        return aNat - bNat || (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-      });
-
-      sorted.forEach((v, i) => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        const flag = {'pt-BR':'🇧🇷','pt-PT':'🇵🇹','en-US':'🇺🇸','es-ES':'🇪🇸','fr-FR':'🇫🇷'}[v.lang] || '🌐';
-        const quality = v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('premium') ? '⭐ ' : '';
-        opt.textContent = `${quality}${flag} ${v.name}`;
-        sel.appendChild(opt);
-      });
-
-      const saved = localStorage.getItem('voxdoc_voice');
-      if (saved && sorted[saved]) sel.value = saved;
-    };
-
-    loadVoices();
-    synth.onvoiceschanged = loadVoices;
-
-    const processFile = async (file) => {
+    async function processFile(file) {
       if (!file) return;
-      
-      fileName = file.name;
-      $('fileName').textContent = fileName.length > 15 ? fileName.slice(0, 12) + '...' : fileName;
-      currentSource = 'file';
-      $('sourceType').textContent = '📄 Documento';
-      
+      AppState.fileName = file.name; AppState.sourceType = 'file'; updateHeaderStats();
+      $('textDisplay').innerHTML = '<div class="loading-overlay"><div class="spinner"></div></div>';
       try {
-        let text = '';
-        const ext = file.name.split('.').pop().toLowerCase();
-        
-        if (ext === 'txt' || ext === 'md') {
-          text = await file.text();
-        } else if (ext === 'html') {
-          text = await file.text();
-          text = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-        } else if (ext === 'pdf') {
-          if (typeof pdfjsLib === 'undefined') {
-            text = await file.text();
-            showToast('PDF sem biblioteca.', 'warning');
-          } else {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = './JS/pdf.worker.min.js';
-            const buf = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(buf).promise;
-            for (let i = 1; i <= pdf.numPages; i++) {
-              const page = await pdf.getPage(i);
-              const content = await page.getTextContent();
-              text += content.items.map(it => it.str).join(' ') + '\n';
-            }
-          }
-        } else if (ext === 'docx') {
-          if (typeof mammoth === 'undefined') {
-            text = await file.text();
-            showToast('DOCX sem biblioteca.', 'warning');
-          } else {
-            const buf = await file.arrayBuffer();
-            const res = await mammoth.extractRawText({ arrayBuffer: buf });
-            text = res.value;
-          }
-        } else {
-          throw new Error('Formato não suportado');
-        }
-        
-        words = text.split(/\s+/).filter(w => w.trim());
-        phrases = splitIntoPhrases(text);
-        phraseMap = mapWordsToPhrases(words, phrases);
-        currentWordIndex = 0;
-        currentPhrase = 0;
-        
-        renderText();
-        $('wordCount').textContent = words.length.toLocaleString();
-        highlightWord(0);
-        showToast(`${words.length} palavras • ${phrases.length} frases`, 'ok');
-        
-      } catch (e) {
-        const errorMsg = e && e.message ? e.message : 'Erro desconhecido';
-        showToast('Erro: ' + errorMsg, 'err');
-        $('textDisplay').innerHTML = `<div class="text-center text-danger py-5"><i class="bi bi-x-circle" style="font-size: 2rem;"></i><p class="mt-2">${errorMsg}</p></div>`;
+        let txt='', ext=file.name.split('.').pop().toLowerCase();
+        if (ext==='pdf' && typeof pdfjsLib==='undefined') { await import('./JS/pdf.min.js'); pdfjsLib.GlobalWorkerOptions.workerSrc='/JS/pdf.worker.min.js'; }
+        if (ext==='docx' && typeof mammoth==='undefined') { await import('./JS/mammoth.browser.min.js'); }
+        if (ext==='txt'||ext==='md') txt = await file.text();
+        else if (ext==='html') { const h=await file.text(); const t=document.createElement('div'); t.innerHTML=h; txt=t.textContent||t.innerText||''; }
+        else if (ext==='pdf') { const buf=await file.arrayBuffer(), pdf=await pdfjsLib.getDocument(buf).promise;
+          for(let i=1;i<=pdf.numPages;i++){const pg=await pdf.getPage(i),c=await pg.getTextContent(); txt+=c.items.map(x=>x.str).join(' ')+'\n';} }
+        else if (ext==='docx') { const buf=await file.arrayBuffer(), r=await mammoth.extractRawText({arrayBuffer:buf}); txt=r.value; }
+        else throw new Error(`Formato não suportado: .${ext}`);
+        processTextContent(txt, file.name, 'file');
+        showToast(`${AppState.words.length.toLocaleString()} palavras`, 'ok');
+        await HistoryService.save({fileName:file.name,source:'file',wordCount:AppState.words.length,phraseCount:AppState.phrases.length,lastPosition:0});
+        loadBookmarksForFile(file.name);
+      } catch(e) {
+        console.error('[File]',e); showToast(`Erro: ${e.message}`,'err');
+        $('textDisplay').innerHTML = `<div class="text-center text-danger py-5"><i class="bi bi-x-circle" style="font-size:2rem;"></i><p class="mt-2">${e.message||'Erro'}</p></div>`;
       }
-    };
+    }
 
-    const renderText = () => {
-      const container = $('textDisplay');
-      container.innerHTML = '';
-      const frag = document.createDocumentFragment();
-      
-      words.forEach((w, i) => {
-        const span = document.createElement('span');
-        span.className = 'word';
-        span.textContent = w + ' ';
-        span.dataset.index = i;
-        span.onclick = () => clickToRead(i);
-        frag.appendChild(span);
-      });
-      
-      container.appendChild(frag);
-    };
-
-    const renderOCRText = () => {
-      const container = $('ocrTextDisplay');
-      container.innerHTML = '';
-      const frag = document.createDocumentFragment();
-      
-      words.forEach((w, i) => {
-        const span = document.createElement('span');
-        span.className = 'word';
-        span.textContent = w + ' ';
-        span.dataset.index = i;
-        span.onclick = () => clickToRead(i);
-        frag.appendChild(span);
-      });
-      
-      container.appendChild(frag);
-    };
-
-    // =====================
-    // OCR - Online/Offline
-    // =====================
-    const processOCR = async (file) => {
-      if (!file) return;
-      
-      const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/bmp', 'image/gif'];
-      if (!validTypes.includes(file.type)) {
-        showToast('Formato de imagem não suportado', 'err');
-        return;
-      }
-
-      if (ocrProcessing) {
-        showToast('OCR já está em processamento', 'warning');
-        return;
-      }
-
-      if (typeof Tesseract === 'undefined') {
-        showToast('Biblioteca OCR não carregada.', 'err');
-        return;
-      }
-
-      ocrProcessing = true;
-      $('ocrBtn').disabled = true;
-      $('ocrReadBtn').disabled = true;
-
-      fileName = file.name;
-      $('fileName').textContent = fileName.length > 15 ? fileName.slice(0, 12) + '...' : fileName;
-      currentSource = 'ocr';
-      $('sourceType').textContent = '🖼️ Imagem (OCR)';
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = document.createElement('img');
-        img.src = e.target.result;
-        img.className = 'image-preview show';
-        img.style.maxWidth = '100%';
-        img.style.maxHeight = '200px';
-        img.style.borderRadius = 'var(--radius)';
-        img.style.margin = '10px 0';
-        $('ocrTextDisplay').innerHTML = '';
-        $('ocrTextDisplay').appendChild(img);
-      };
-      reader.readAsDataURL(file);
-
-      $('ocrProgress').classList.add('show');
-      $('ocrProgressFill').style.width = '10%';
-      $('ocrStatusText').textContent = 'Preparando OCR...';
-
-      try {
-        const ocrLang = $('ocrLangSelect').value || 'por';
-        const config = window.VOXDOC_OCR_CONFIG || {};
-        
-        const tessConfig = {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              const progress = Math.round(30 + (m.progress * 70));
-              $('ocrProgressFill').style.width = `${progress}%`;
-              $('ocrStatusText').textContent = `Reconhecendo: ${Math.round(m.progress * 100)}%`;
-            } else if (m.status === 'loading language') {
-              $('ocrStatusText').textContent = config.isOnline 
-                ? 'Baixando dados de idioma...' 
-                : 'Carregando idioma (offline)...';
-              $('ocrProgressFill').style.width = '50%';
-            } else if (m.status === 'initializing') {
-              $('ocrStatusText').textContent = 'Inicializando OCR...';
-              $('ocrProgressFill').style.width = '70%';
-            }
-          }
-        };
-
-        if (!config.isOnline && config.langPath) {
-          tessConfig.workerPath = config.workerPath;
-          tessConfig.langPath = config.langPath;
-          tessConfig.corePath = config.corePath;
-        }
-
-        const result = await Tesseract.recognize(file, ocrLang, tessConfig);
-
-        let text = result?.data?.text || result?.text || '';
-        ocrText = text.replace(/[^\w\sàáâãéêíóôõúçÀÁÂÃÉÊÍÓÔÕÚÇ.,!?;:()\-'"]/g, ' ')
-                      .replace(/\s+/g, ' ')
-                      .trim();
-
-        $('ocrProgressFill').style.width = '100%';
-
-        if (!ocrText || ocrText.length < 3) {
-          throw new Error('Texto não detectado. Use imagem com texto claro.');
-        }
-
-        words = ocrText.split(/\s+/).filter(w => w.trim());
-        phrases = splitIntoPhrases(ocrText);
-        phraseMap = mapWordsToPhrases(words, phrases);
-        currentWordIndex = 0;
-        currentPhrase = 0;
-
-        renderOCRText();
-        renderText();
-        
-        $('wordCount').textContent = words.length.toLocaleString();
-        highlightWord(0);
-
-        setTimeout(() => {
-          $('ocrProgress').classList.remove('show');
-        }, 1500);
-
-        $('ocrBtn').disabled = false;
-        $('ocrReadBtn').disabled = false;
-        ocrProcessing = false;
-        
-        showToast(`${words.length} palavras extraídas!`, 'ok');
-        document.querySelector('[data-bs-target="#ocrTab"]').click();
-
-      } catch (e) {
-        console.error('OCR Error:', e);
-        $('ocrProgress').classList.remove('show');
-        $('ocrBtn').disabled = false;
-        $('ocrReadBtn').disabled = false;
-        ocrProcessing = false;
-        
-        const errorMsg = e?.message || 'Erro no OCR';
-        showToast('Erro OCR: ' + errorMsg, 'err');
-        
-        $('ocrTextDisplay').innerHTML = `
-          <div class="text-center text-danger py-5">
-            <i class="bi bi-x-circle" style="font-size: 2rem;"></i>
-            <p class="mt-2">${errorMsg}</p>
-            ${!window.VOXDOC_OCR_CONFIG?.isOnline ? 
-              '<p class="text-muted small">💡 Dica: Para OCR offline, baixe os arquivos em JS/lang-data/</p>' : ''}
-          </div>
-        `;
-      }
-    };
-
-    const processPastedText = () => {
-      const text = $('pasteText').value.trim();
-      if (!text) { showToast('Cole algum texto', 'warning'); return; }
-      
-      fileName = 'Texto Colado';
-      $('fileName').textContent = '📋 Texto';
-      currentSource = 'paste';
-      $('sourceType').textContent = '📋 Colado';
-      
-      words = text.split(/\s+/).filter(w => w.trim());
-      phrases = splitIntoPhrases(text);
-      phraseMap = mapWordsToPhrases(words, phrases);
-      currentWordIndex = 0;
-      currentPhrase = 0;
-      
-      renderText();
-      $('wordCount').textContent = words.length.toLocaleString();
-      highlightWord(0);
-      showToast(`${words.length} palavras`, 'ok');
-      
+    function processPastedText() {
+      const t = $('pasteText').value.trim(); if (!t) { showToast('Cole um texto','warning'); return; }
+      AppState.fileName='Texto Colado'; AppState.sourceType='paste'; updateHeaderStats();
+      processTextContent(t,'Texto Colado','paste'); showToast(`${AppState.words.length.toLocaleString()} palavras`,'ok');
       document.querySelector('[data-bs-target="#fileTab"]').click();
-    };
-
-    const clickToRead = (wordIndex) => {
-      stop();
-      currentWordIndex = wordIndex;
-      
-      const phraseIdx = phraseMap.findIndex(m => 
-        wordIndex >= m.wordStart && wordIndex <= m.wordEnd
-      );
-      
-      if (phraseIdx !== -1) currentPhrase = phraseIdx;
-      
-      highlightWord(wordIndex);
-      updateProgress();
-      showToast(`Palavra ${wordIndex + 1}`, 'info');
-      
-      setTimeout(() => { play(); }, 300);
-    };
-
-    const getVoice = () => {
-      const idx = $('voiceSelect').value;
-      return voices[idx] || voices.find(v => v.lang.startsWith($('ocrLangSelect').value.split('-')[0])) || voices[0];
-    };
-
-    const speak = (text, onEnd) => {
-      const u = new SpeechSynthesisUtterance(text);
-      u.voice = getVoice();
-      u.lang = $('ocrLangSelect').value;
-      u.rate = parseFloat($('rateRange').value);
-      u.pitch = parseFloat($('pitchRange').value);
-      u.volume = parseFloat($('volumeRange').value);
-      u.onend = onEnd;
-      u.onerror = () => stop();
-      synth.speak(u);
-    };
-
-    const updatePhraseHighlight = () => {
-      if (!playing || paused || currentPhrase >= phraseMap.length) return;
-      
-      const mapping = phraseMap[currentPhrase];
-      if (!mapping) return;
-      
-      const elapsed = Date.now() - phraseStartTime;
-      currentSpeed = parseFloat($('rateRange').value);
-      const phraseDuration = Math.max(1000, (mapping.text.length * 55) / currentSpeed);
-      const progress = Math.min(1, elapsed / phraseDuration);
-      
-      const wordCount = mapping.words.length;
-      const currentWordInPhrase = Math.floor(progress * wordCount);
-      const globalWordIdx = mapping.wordStart + currentWordInPhrase;
-      
-      document.querySelectorAll('.word.active').forEach(el => el.classList.remove('active'));
-      const spans = document.querySelectorAll('.word');
-      if (spans[globalWordIdx]) {
-        spans[globalWordIdx].classList.add('active');
-        const rect = spans[globalWordIdx].getBoundingClientRect();
-        if (rect.top < 100 || rect.bottom > window.innerHeight - 100) {
-          spans[globalWordIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-      
-      if (playing && !paused && currentPhrase < phrases.length) {
-        highlightAnimation = requestAnimationFrame(updatePhraseHighlight);
-      }
-    };
-
-    const readNextPhrase = () => {
-      if (currentPhrase >= phrases.length) { stop(); showToast('Leitura concluída!', 'ok'); return; }
-      
-      const phrase = phrases[currentPhrase];
-      const mapping = phraseMap[currentPhrase];
-      
-      if (mapping) {
-        highlightRange(mapping.wordStart, mapping.wordEnd);
-        const spans = document.querySelectorAll('.word');
-        if (spans[mapping.wordStart]) {
-          spans[mapping.wordStart].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-      
-      phraseStartTime = Date.now();
-      
-      speak(phrase, () => {
-        if (playing && !paused) {
-          currentPhrase++;
-          currentWordIndex = mapping ? mapping.wordEnd + 1 : currentWordIndex + 1;
-          updateProgress();
-          readNextPhrase();
-        }
-      });
-      
-      if (highlightAnimation) cancelAnimationFrame(highlightAnimation);
-      highlightAnimation = requestAnimationFrame(updatePhraseHighlight);
-    };
-
-    const highlightRange = (start, end) => {
-      document.querySelectorAll('.word.active, .word.reading').forEach(el => el.classList.remove('active', 'reading'));
-      const spans = document.querySelectorAll('.word');
-      if (spans[start]) spans[start].classList.add('active');
-      for (let i = start + 1; i <= end && i < spans.length; i++) spans[i].classList.add('reading');
-    };
-
-    const highlightWord = (i) => {
-      document.querySelectorAll('.word.active, .word.reading').forEach(el => el.classList.remove('active', 'reading'));
-      const spans = document.querySelectorAll('.word');
-      if (spans[i]) {
-        spans[i].classList.add('active');
-        spans[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    };
-
-    const play = () => {
-      if (!words || words.length === 0) { 
-        showToast('Carregue um arquivo ou imagem primeiro', 'warning'); 
-        return; 
-      }
-      
-      if (paused) {
-        synth.resume();
-        paused = false;
-        $('playBtn').innerHTML = '<i class="bi bi-pause-fill"></i>';
-        startTimer();
-        highlightAnimation = requestAnimationFrame(updatePhraseHighlight);
-        return;
-      }
-      
-      if (playing) {
-        synth.pause();
-        paused = true;
-        $('playBtn').innerHTML = '<i class="bi bi-play-fill"></i>';
-        stopTimer();
-        if (highlightAnimation) cancelAnimationFrame(highlightAnimation);
-        return;
-      }
-      
-      playing = true;
-      paused = false;
-      $('playBtn').innerHTML = '<i class="bi bi-pause-fill"></i>';
-      readNextPhrase();
-      startTimer();
-    };
-
-    const stop = () => {
-      synth.cancel();
-      playing = false;
-      paused = false;
-      $('playBtn').innerHTML = '<i class="bi bi-play-fill"></i>';
-      stopTimer();
-      if (highlightAnimation) cancelAnimationFrame(highlightAnimation);
-      highlightAnimation = null;
-    };
-
-    const restart = () => { stop(); currentWordIndex = 0; currentPhrase = 0; highlightWord(0); updateProgress(); setTimeout(play, 100); };
-    const jumpTo = (i) => { stop(); currentWordIndex = i; const p = phraseMap.findIndex(m => i >= m.wordStart && i <= m.wordEnd); if (p !== -1) currentPhrase = p; highlightWord(i); updateProgress(); };
-
-    const updateProgress = () => {
-      if (words.length) $('progress').textContent = Math.round((currentWordIndex / words.length) * 100) + '%';
-      if (fileName && fileName !== 'Texto Colado') {
-        const p = JSON.parse(localStorage.getItem('voxdoc_progress') || '{}');
-        p[fileName] = currentWordIndex;
-        localStorage.setItem('voxdoc_progress', JSON.stringify(p));
-      }
-    };
-
-    const startTimer = () => { if (timer) return; startTime = Date.now(); timer = setInterval(() => $('time').textContent = formatTime(Date.now() - startTime), 1000); };
-    const stopTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
-
-    const toggleTheme = () => {
-      document.body.classList.toggle('light-mode');
-      const isLight = document.body.classList.contains('light-mode');
-      $('themeBtn').innerHTML = isLight ? '<i class="bi bi-moon-stars"></i>' : '<i class="bi bi-sun"></i>';
-      localStorage.setItem('voxdoc_theme', isLight ? 'light' : 'dark');
-    };
-
-    // =====================
-    // CARREGAR ANÚNCIOS
-    // =====================
-    const loadAds = () => {
-      // Para Google AdSense, descomente e configure:
-      /*
-      if (typeof adsbygoogle !== 'undefined') {
-        (adsbygoogle = window.adsbygoogle || []).push({});
-        document.querySelectorAll('.ad-space').forEach(ad => {
-          ad.classList.add('ad-loaded');
-        });
-      }
-      */
-      console.log('📢 Espaços para anúncios carregados');
-    };
-
-    // =====================
-    // EVENTOS
-    // =====================
-    $('fileBtn').onclick = () => $('fileInput').click();
-    $('fileInput').onchange = e => processFile(e.target.files[0]);
-    
-    $('playBtn').onclick = play;
-    $('stopBtn').onclick = stop;
-    $('ocrReadBtn').onclick = play;
-    
-    $('backBtn').onclick = () => jumpTo(Math.max(0, currentWordIndex - 50));
-    $('forwardBtn').onclick = () => jumpTo(Math.min(words.length - 1, currentWordIndex + 50));
-    
-    $('slowerBtn').onclick = () => { $('rateRange').value = Math.max(0.5, parseFloat($('rateRange').value) - 0.1); $('rateValue').textContent = $('rateRange').value + 'x'; };
-    $('fasterBtn').onclick = () => { $('rateRange').value = Math.min(2, parseFloat($('rateRange').value) + 0.1); $('rateValue').textContent = $('rateRange').value + 'x'; };
-    
-    $('themeBtn').onclick = toggleTheme;
-    
-    $('rateRange').oninput = e => { $('rateValue').textContent = e.target.value + 'x'; currentSpeed = parseFloat(e.target.value); };
-    $('pitchRange').oninput = e => $('pitchValue').textContent = e.target.value;
-    $('volumeRange').oninput = e => $('volumeValue').textContent = Math.round(e.target.value * 100) + '%';
-    $('voiceSelect').onchange = () => localStorage.setItem('voxdoc_voice', $('voiceSelect').value);
-    $('ocrLangSelect').onchange = () => { if (playing) { stop(); setTimeout(play, 100); } };
-
-    $('pasteBtn').onclick = processPastedText;
-
-    $('ocrBtn').onclick = () => $('ocrInput').click();
-    $('ocrInput').onchange = e => processOCR(e.target.files[0]);
-
-    const dropZone = $('dropZone');
-    dropZone.onclick = () => $('fileInput').click();
-    dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
-    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
-    dropZone.ondrop = e => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); };
-
-    const ocrDropZone = $('ocrDropZone');
-    ocrDropZone.onclick = () => $('ocrInput').click();
-    ocrDropZone.ondragover = e => { e.preventDefault(); ocrDropZone.classList.add('dragover'); };
-    ocrDropZone.ondragleave = () => ocrDropZone.classList.remove('dragover');
-    ocrDropZone.ondrop = e => { 
-      e.preventDefault(); 
-      ocrDropZone.classList.remove('dragover'); 
-      if (e.dataTransfer.files[0]) processOCR(e.dataTransfer.files[0]); 
-    };
-
-    document.addEventListener('keydown', e => {
-      if (['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)) return;
-      if (e.code === 'Space') { e.preventDefault(); play(); }
-      else if (e.code === 'Escape') stop();
-      else if (e.ctrlKey && e.code === 'KeyR') { e.preventDefault(); restart(); }
-      else if (e.ctrlKey && e.code === 'KeyO') { e.preventDefault(); $('fileInput').click(); }
-      else if (e.ctrlKey && e.code === 'KeyI') { e.preventDefault(); $('ocrInput').click(); }
-    });
-
-    if (localStorage.getItem('voxdoc_theme') === 'light') {
-      document.body.classList.add('light-mode');
-      $('themeBtn').innerHTML = '<i class="bi bi-moon-stars"></i>';
     }
 
-    window.addEventListener('load', () => {
-      loadVoices();
-      loadAds();
-      console.log('🎧 VoxDoc + OCR – Pronto para usar!');
-      console.log('✅ Tesseract disponível:', typeof Tesseract !== 'undefined');
-      console.log('🌐 Online:', window.VOXDOC_OCR_CONFIG?.isOnline);
-    });
+    function processTextContent(text, fileName, source) {
+      text = text.replace(/\s+/g,' ').trim();
+      AppState.words = text.split(/\s+/).filter(w=>w.trim());
+      AppState.phrases = splitIntoPhrases(text);
+      AppState.phraseMap = mapWordsToPhrases(AppState.words, AppState.phrases);
+      AppState.currentWordIndex = 0; AppState.currentPhrase = 0;
+      renderText(); updateHeaderStats(); highlightWord(0);
+      if (source==='file' && fileName!=='Texto Colado') {
+        const p = JSON.parse(localStorage.getItem('voxdoc_progress')||'{}');
+        if (p[fileName]) jumpTo(p[fileName]);
+      }
+    }
+
+    function renderText() {
+      const c = $('textDisplay'); if (!c) return; c.innerHTML=''; const f=document.createDocumentFragment();
+      AppState.words.forEach((w,i) => {
+        const s=document.createElement('span'); s.className='word'; s.textContent=w+' '; s.dataset.index=i;
+        s.setAttribute('role','button'); s.setAttribute('tabindex','0');
+        const hdl = () => clickToRead(i); s.onclick=hdl; s.onkeypress=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();hdl();}};
+        f.appendChild(s);
+      }); c.appendChild(f); updateBookmarkIndicators();
+    }
+
+    function renderOCRText() {
+      const c = $('ocrTextDisplay'); if (!c) return;
+      const pv = c.querySelector('.image-preview'); c.innerHTML=''; if (pv) c.appendChild(pv);
+      const f=document.createDocumentFragment();
+      AppState.words.forEach((w,i) => { const s=document.createElement('span'); s.className='word'; s.textContent=w+' '; s.dataset.index=i; s.onclick=()=>clickToRead(i); f.appendChild(s); });
+      c.appendChild(f); updateBookmarkIndicators();
+    }
+
+    async function processOCR(file) {
+      if (!file || AppState.ocrLock) { if (AppState.ocrLock) showToast('OCR em andamento','warning'); return; }
+      if (!['image/png','image/jpeg','image/jpg','image/webp','image/bmp','image/gif'].includes(file.type)) { showToast('Formato inválido','err'); return; }
+      AppState.ocrLock=true; $('ocrBtn').disabled=true; $('ocrReadBtn').disabled=true;
+      AppState.fileName=file.name; AppState.sourceType='ocr'; updateHeaderStats();
+      const reader=new FileReader(); reader.onload=e=>{
+        const img=document.createElement('img'); img.src=e.target.result; img.className='image-preview show'; img.alt='Preview OCR';
+        $('ocrTextDisplay').innerHTML=''; $('ocrTextDisplay').appendChild(img);
+      }; reader.readAsDataURL(file);
+      const prog=$('ocrProgress'), fill=$('ocrProgressFill'), stat=$('ocrStatusText');
+      prog.classList.add('show'); prog.setAttribute('aria-busy','true'); fill.style.width='10%'; stat.textContent='Preparando...';
+      try {
+        const lang = $('ocrLangSelect').value || AppState.settings.ocrLang;
+        const logger = m => {
+          if (m.status==='recognizing text') { fill.style.width=`${Math.round(30+m.progress*70)}%`; stat.textContent=`Reconhecendo: ${Math.round(m.progress*100)}%`; }
+          else if (m.status==='loading language') { stat.textContent=window.VOXDOC_CONFIG.ocr.isOnline?'Baixando idioma...':'Carregando (offline)...'; fill.style.width='50%'; }
+          else if (m.status==='initializing') { stat.textContent='Inicializando...'; fill.style.width='75%'; }
+        };
+        const txt = await OcrService.recognize(file, lang, {logger}); AppState.ocrText=txt; fill.style.width='100%';
+        if (!txt || txt.length<3) throw new Error('Nenhum texto detectado. Use imagem com texto claro.');
+        processTextContent(txt, file.name, 'ocr');
+        await HistoryService.save({fileName:file.name,source:'ocr',wordCount:AppState.words.length,phraseCount:AppState.phrases.length,lastPosition:0});
+        setTimeout(()=>{prog.classList.remove('show'); prog.setAttribute('aria-busy','false');},1000);
+        showToast(`${AppState.words.length.toLocaleString()} palavras extraídas!`,'ok'); $('ocrReadBtn').disabled=false;
+        document.querySelector('[data-bs-target="#ocrTab"]').click();
+      } catch(e) {
+        console.error('[OCR]',e); showToast(`Erro OCR: ${e.message}`,'err');
+        $('ocrTextDisplay').innerHTML = `<div class="text-center text-danger py-5"><i class="bi bi-x-circle" style="font-size:2rem;"></i><p class="mt-2">${e.message}</p>${!window.VOXDOC_CONFIG.ocr.isOnline?'<p class="text-muted small mt-2">💡 Verifique /JS/lang-data/</p>':''}</div>`;
+      } finally { AppState.ocrLock=false; $('ocrBtn').disabled=false; }
+    }
+
+    // ===== CONTROLES DE LEITURA =====
+    function clickToRead(i) { stop(); AppState.currentWordIndex=i;
+      const p=AppState.phraseMap.findIndex(m=>i>=m.wordStart&&i<=m.wordEnd); if(p!==-1)AppState.currentPhrase=p;
+      highlightWord(i); updateProgress(); setTimeout(play,200);
+    }
+    function highlightWord(i) {
+      $$('.word.active,.word.reading').forEach(e=>e.classList.remove('active','reading'));
+      const ws=$$('.word'); if (ws[i]) { ws[i].classList.add('active');
+        const r=ws[i].getBoundingClientRect(),c=$('textDisplay');
+        if (c && (r.top<80||r.bottom>window.innerHeight-80)) ws[i].scrollIntoView({behavior:'smooth',block:'center'});
+      }
+    }
+    function highlightRange(s,e) {
+      $$('.word.active,.word.reading').forEach(x=>x.classList.remove('active','reading'));
+      const ws=$$('.word'); if (ws[s]) ws[s].classList.add('active');
+      for(let i=s+1;i<=e&&i<ws.length;i++) ws[i]?.classList.add('reading');
+    }
+    function updatePhraseHighlight() {
+      if (!AppState.playing||AppState.paused) return;
+      const m=AppState.phraseMap[AppState.currentPhrase]; if (!m) return;
+      const elapsed=Date.now()-AppState.phraseStartTime, spd=parseFloat($('rateRange').value);
+      const dur=Math.max(1000,(m.text.length*55)/spd), prog=Math.min(1,elapsed/dur);
+      const idx=m.wordStart+Math.floor(prog*m.words.length); highlightWord(idx);
+      const ws=$$('.word'); if (ws[idx]) { const r=ws[idx].getBoundingClientRect(),c=$('textDisplay');
+        if (c&&(r.top<100||r.bottom>window.innerHeight-100)) ws[idx].scrollIntoView({behavior:'smooth',block:'center'});
+      }
+      if (AppState.playing&&!AppState.paused&&AppState.currentPhrase<AppState.phrases.length)
+        AppState.highlightAnimation=requestAnimationFrame(updatePhraseHighlight);
+    }
+    function readNextPhrase() {
+      if (AppState.currentPhrase>=AppState.phrases.length) { stop(); showToast('✅ Leitura concluída!','ok'); return; }
+      const ph=AppState.phrases[AppState.currentPhrase], m=AppState.phraseMap[AppState.currentPhrase];
+      if (m) { highlightRange(m.wordStart,m.wordEnd); const ws=$$('.word'); if(ws[m.wordStart])ws[m.wordStart].scrollIntoView({behavior:'smooth',block:'center'}); }
+      AppState.phraseStartTime=Date.now();
+      const cfg={lang:$('ocrLangSelect').value,rate:parseFloat($('rateRange').value),pitch:parseFloat($('pitchRange').value),volume:parseFloat($('volumeRange').value)};
+      TtsService.speak(ph,cfg,()=>{if(AppState.playing&&!AppState.paused){AppState.currentPhrase++;AppState.currentWordIndex=m?m.wordEnd+1:AppState.currentWordIndex+1;updateProgress();readNextPhrase();}},e=>{console.error('[Speech]',e);stop();});
+      if (AppState.highlightAnimation) cancelAnimationFrame(AppState.highlightAnimation);
+      AppState.highlightAnimation=requestAnimationFrame(updatePhraseHighlight);
+    }
+    function play() {
+      if (!AppState.words?.length) { showToast('Carregue um arquivo primeiro','warning'); return; }
+      if (AppState.paused && TtsService.resume()) { AppState.paused=false; updatePlayButton(); startTimer(); AppState.highlightAnimation=requestAnimationFrame(updatePhraseHighlight); return; }
+      if (AppState.playing && !AppState.paused && TtsService.pause()) { AppState.paused=true; updatePlayButton(); stopTimer(); if(AppState.highlightAnimation)cancelAnimationFrame(AppState.highlightAnimation); return; }
+      AppState.playing=true; AppState.paused=false; updatePlayButton(); readNextPhrase(); startTimer();
+    }
+    function stop() {
+      TtsService.cancel(); AppState.playing=false; AppState.paused=false; updatePlayButton(); stopTimer();
+      if (AppState.highlightAnimation) { cancelAnimationFrame(AppState.highlightAnimation); AppState.highlightAnimation=null; }
+      $$('.word.active,.word.reading').forEach(e=>e.classList.remove('active','reading'));
+    }
+    function restart() { stop(); AppState.currentWordIndex=0; AppState.currentPhrase=0; highlightWord(0); updateProgress(); setTimeout(play,100); }
+    function jumpTo(i) {
+      stop(); AppState.currentWordIndex=Math.max(0,Math.min(i,AppState.words.length-1));
+      const p=AppState.phraseMap.findIndex(m=>AppState.currentWordIndex>=m.wordStart&&AppState.currentWordIndex<=m.wordEnd);
+      if(p!==-1)AppState.currentPhrase=p; highlightWord(AppState.currentWordIndex); updateProgress();
+    }
+    function updatePlayButton() {
+      const btn=$('playBtn'),ic=$('playIcon');
+      if (AppState.paused) { ic.className='bi bi-play-fill'; btn.setAttribute('aria-label','Retomar'); }
+      else if (AppState.playing) { ic.className='bi bi-pause-fill'; btn.setAttribute('aria-label','Pausar'); }
+      else { ic.className='bi bi-play-fill'; btn.setAttribute('aria-label','Reproduzir'); }
+    }
+
+    // ===== UI =====
+    function updateHeaderStats() {
+      $('fileName').textContent=AppState.fileName?(AppState.fileName.length>18?AppState.fileName.slice(0,15)+'...':AppState.fileName):'-';
+      $('sourceType').textContent={'file':'📄 Documento','paste':'📋 Colado','ocr':'🖼️ OCR','none':'-'}[AppState.sourceType]||'-';
+      $('wordCount').textContent=AppState.words.length.toLocaleString();
+    }
+    function updateProgress() {
+      if (AppState.words.length) $('progress').textContent=Math.round((AppState.currentWordIndex/AppState.words.length)*100)+'%';
+      if (AppState.fileName && AppState.fileName!=='Texto Colado') {
+        const p=JSON.parse(localStorage.getItem('voxdoc_progress')||'{}'); p[AppState.fileName]=AppState.currentWordIndex;
+        localStorage.setItem('voxdoc_progress',JSON.stringify(p));
+      }
+    }
+    function startTimer() { if (AppState.timer) return; AppState.startTime=Date.now(); AppState.timer=setInterval(()=>$('time').textContent=formatTime(Date.now()-AppState.startTime),1000); }
+    function stopTimer() { if (AppState.timer) { clearInterval(AppState.timer); AppState.timer=null; } }
+
+    function loadBookmarksForFile(fn) {
+      const bks=BookmarkService.getByFile(fn); AppState.bookmarks=bks;
+      const panel=$('bookmarksPanel'),list=$('bookmarksList');
+      if (bks.length>0) {
+        panel.classList.remove('hidden');
+        list.innerHTML=bks.map(b=>`<div class="bookmark-item" data-id="${b.id}" data-index="${b.wordIndex}" role="button" tabindex="0"><span class="bookmark-text" title="${b.text}">${b.text||`Posição ${b.wordIndex+1}`}</span><span class="bookmark-time">${new Date(b.createdAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span><button class="bookmark-remove">×</button></div>`).join('');
+        updateBookmarkIndicators();
+      } else { panel.classList.add('hidden'); list.innerHTML=''; }
+    }
+    function updateBookmarkIndicators() {
+      $$('.word').forEach((el,i)=>{el.classList.toggle('bookmarked',AppState.bookmarks.some(b=>b.fileName===AppState.fileName&&Math.abs(b.wordIndex-i)<1));});
+    }
+    function addBookmark() {
+      if (!AppState.words.length||AppState.currentWordIndex>=AppState.words.length) { showToast('Nenhuma palavra para marcar','warning'); return; }
+      const r=BookmarkService.add({wordIndex:AppState.currentWordIndex,text:AppState.words[AppState.currentWordIndex],fileName:AppState.fileName,source:AppState.sourceType});
+      if (r) { showToast('🔖 Marcador adicionado','ok',2000); loadBookmarksForFile(AppState.fileName); }
+      else showToast('Marcador já existe próximo','info',2000);
+    }
+    function removeBookmark(id) { BookmarkService.remove(id); loadBookmarksForFile(AppState.fileName); showToast('Marcador removido','info',2000); }
+
+    // ===== CONFIG =====
+    function loadSettings() {
+      if (AppState.settings.theme==='light') { document.body.classList.add('light-mode'); $('themeBtn').innerHTML='<i class="bi bi-moon-stars"></i>'; }
+      $('ocrLangSelect').value=AppState.settings.ocrLang; $('rateRange').value=AppState.settings.rate; $('rateValue').textContent=`${AppState.settings.rate}x`;
+      $('pitchRange').value=AppState.settings.pitch; $('pitchValue').textContent=AppState.settings.pitch.toFixed(1);
+      $('volumeRange').value=AppState.settings.volume; $('volumeValue').textContent=`${Math.round(AppState.settings.volume*100)}%`;
+      AppState.currentSpeed=AppState.settings.rate;
+    }
+    const saveSetting=debounce((k,v)=>{localStorage.setItem(`voxdoc_${k}`,v);AppState.settings[k]=v;},300);
+    function toggleTheme() {
+      const lt=document.body.classList.toggle('light-mode');
+      $('themeBtn').innerHTML=lt?'<i class="bi bi-moon-stars"></i>':'<i class="bi bi-sun"></i>';
+      saveSetting('theme',lt?'light':'dark'); showToast(`Tema ${lt?'claro':'escuro'}`,'info',2000);
+    }
+    function adjustRate(d) {
+      const r=$('rateRange'),v=Math.max(0.5,Math.min(2,parseFloat(r.value)+d)); r.value=v; $('rateValue').textContent=`${v}x`; AppState.currentSpeed=v; saveSetting('rate',v);
+      showToast(`Velocidade: ${v}x`,'info',1200);
+    }
+    function updateOfflineBadge() { const b=$('offlineBadge'); if(!navigator.onLine)b.classList.add('show'); else b.classList.remove('show'); }
+
+    // ===== INICIALIZAÇÃO =====
+    function populateVoiceSelect() {
+      const sel=$('voiceSelect'); sel.innerHTML='';
+      const prefs=['pt-BR','pt-PT','en-US','es-ES','fr-FR','de-DE','it-IT'];
+      const sorted=[...AppState.voices].sort((a,b)=>{
+        const an=a.name.toLowerCase(),bn=b.name.toLowerCase();
+        const aq=/natural|premium|neural|enhanced/.test(an)?-1:0,bq=/natural|premium|neural|enhanced/.test(bn)?-1:0;
+        if(aq!==bq)return aq-bq;
+        const ap=prefs.findIndex(p=>a.lang.startsWith(p.split('-')[0])),bp=prefs.findIndex(p=>b.lang.startsWith(p.split('-')[0]));
+        if(ap!==bp)return(ap===-1?99:ap)-(bp===-1?99:bp);
+        if(a.default&&!b.default)return -1; if(!a.default&&b.default)return 1;
+        return a.lang.localeCompare(b.lang);
+      });
+      sorted.forEach((v,i)=>{
+        const o=document.createElement('option'); o.value=i;
+        const fl={'pt-BR':'🇧🇷','pt-PT':'🇵🇹','en-US':'🇺🇸','en-GB':'🇬🇧','es-ES':'🇪🇸','es-MX':'🇲🇽','fr-FR':'🇫🇷','de-DE':'🇩🇪','it-IT':'🇮🇹'};
+        const q=/natural|premium|neural|enhanced/.test(v.name.toLowerCase())?'⭐ ':'';
+        o.textContent=`${q}${fl[v.lang]||'🌐'} ${v.name}`; o.title=`${v.lang}${v.default?' • Padrão':''} • ${v.name}`; sel.appendChild(o);
+      });
+      if (AppState.settings.voice && sorted[AppState.settings.voice]) sel.value=AppState.settings.voice;
+    }
+
+    function setupEventListeners() {
+      $('fileBtn').onclick=()=>$('fileInput').click(); $('fileInput').onchange=e=>processFile(e.target.files[0]);
+      const dz=$('dropZone'); dz.onclick=()=>$('fileInput').click(); dz.ondragover=e=>{e.preventDefault();dz.classList.add('dragover');}; dz.ondragleave=()=>dz.classList.remove('dragover'); dz.ondrop=e=>{e.preventDefault();dz.classList.remove('dragover');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);};
+      $('ocrBtn').onclick=()=>$('ocrInput').click(); $('ocrInput').onchange=e=>processOCR(e.target.files[0]);
+      const oz=$('ocrDropZone'); oz.onclick=()=>$('ocrInput').click(); oz.ondragover=e=>{e.preventDefault();oz.classList.add('dragover');}; oz.ondragleave=()=>oz.classList.remove('dragover'); oz.ondrop=e=>{e.preventDefault();oz.classList.remove('dragover');if(e.dataTransfer.files[0])processOCR(e.dataTransfer.files[0]);};
+      $('playBtn').onclick=play; $('stopBtn').onclick=stop; $('ocrReadBtn').onclick=play;
+      $('backBtn').onclick=()=>jumpTo(Math.max(0,AppState.currentWordIndex-50)); $('forwardBtn').onclick=()=>jumpTo(Math.min(AppState.words.length-1,AppState.currentWordIndex+50));
+      $('slowerBtn').onclick=()=>adjustRate(-0.1); $('fasterBtn').onclick=()=>adjustRate(0.1);
+      $('rateRange').oninput=debounce(e=>{$('rateValue').textContent=`${e.target.value}x`;AppState.currentSpeed=parseFloat(e.target.value);saveSetting('rate',parseFloat(e.target.value));},100);
+      $('pitchRange').oninput=debounce(e=>{$('pitchValue').textContent=parseFloat(e.target.value).toFixed(1);saveSetting('pitch',parseFloat(e.target.value));},100);
+      $('volumeRange').oninput=debounce(e=>{$('volumeValue').textContent=`${Math.round(e.target.value*100)}%`;saveSetting('volume',parseFloat(e.target.value));},100);
+      $('voiceSelect').onchange=e=>{saveSetting('voice',e.target.value);if(AppState.playing){const ph=AppState.phrases[AppState.currentPhrase];if(ph){TtsService.cancel();setTimeout(readNextPhrase,100);}}};
+      $('ocrLangSelect').onchange=e=>{saveSetting('ocrLang',e.target.value);if(AppState.playing){stop();setTimeout(play,100);}};
+      $('pasteBtn').onclick=processPastedText; $('clearPasteBtn').onclick=()=>{$('pasteText').value='';showToast('Texto limpo','info',1500);};
+      $('pasteText').onkeydown=e=>{if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();processPastedText();}};
+      $('themeBtn').onclick=toggleTheme;
+      $('textDisplay').addEventListener('click',e=>{if(e.ctrlKey&&e.target.classList.contains('word')){e.preventDefault();addBookmark();}});
+      $('bookmarksList')?.addEventListener('click',e=>{const it=e.target.closest('.bookmark-item'),rm=e.target.closest('.bookmark-remove');if(rm&&it){e.stopPropagation();removeBookmark(it.dataset.id);}else if(it){jumpTo(parseInt(it.dataset.index));setTimeout(play,300);}});
+      $('clearBookmarksBtn').onclick=()=>{if(confirm('Remover marcadores deste arquivo?')){BookmarkService.clear();AppState.bookmarks=[];$('bookmarksPanel').classList.add('hidden');updateBookmarkIndicators();showToast('Marcadores limpos','ok');}};
+      $('clearHistoryBtn').onclick=()=>HistoryDebug.clear();
+      $('logoBtn').onclick=()=>{if(confirm('Reiniciar aplicação?'))location.reload();}; $('logoBtn').onkeypress=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('logoBtn').onclick();}};
+      document.addEventListener('keydown',e=>{const t=document.activeElement?.tagName;if(['INPUT','SELECT','TEXTAREA'].includes(t))return;switch(e.code){case'Space':e.preventDefault();play();break;case'Escape':stop();break;case'ArrowLeft':if(e.ctrlKey)jumpTo(Math.max(0,AppState.currentWordIndex-50));break;case'ArrowRight':if(e.ctrlKey)jumpTo(Math.min(AppState.words.length-1,AppState.currentWordIndex+50));break;case'KeyR':if(e.ctrlKey){e.preventDefault();restart();}break;case'KeyO':if(e.ctrlKey){e.preventDefault();$('fileInput').click();}break;case'KeyI':if(e.ctrlKey){e.preventDefault();$('ocrInput').click();}break;case'KeyB':if(e.ctrlKey){e.preventDefault();addBookmark();}break;case'KeyT':if(e.ctrlKey){e.preventDefault();toggleTheme();}break;}});
+      window.addEventListener('online',()=>{updateOfflineBadge();showToast('🌐 Online','ok',2000);});
+      window.addEventListener('offline',()=>{updateOfflineBadge();showToast('📴 Offline','warning',3000);});
+      document.getElementById('contentTabs')?.addEventListener('shown.bs.tab',()=>{setTimeout(()=>AdService.refresh(),500);});
+    }
+
+    async function init() {
+      console.log('🎧 VoxDoc+ iniciando...');
+      loadSettings(); await TtsService.loadVoices(); populateVoiceSelect(); setupEventListeners(); updateOfflineBadge();
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').then(r=>console.log('✅ SW:',r.scope)).catch(e=>console.warn('⚠️ SW:',e));
+      console.log('✅ Tesseract:',typeof Tesseract!=='undefined'?'Disponível':'Lazy'); console.log('🌐 Online:',window.VOXDOC_CONFIG.ocr.isOnline); console.log('🔊 Vozes:',AppState.voices.length);
+      await AdService.loadSidebarAds();
+      showToast('VoxDoc+ pronto! 🚀','ok',2500);
+    }
+
+    if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
   </script>
 </body>
 </html>
